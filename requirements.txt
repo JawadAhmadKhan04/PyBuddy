@@ -1,1 +1,4 @@
 nltk
+fastapi
+google-genai
+langchain_community
