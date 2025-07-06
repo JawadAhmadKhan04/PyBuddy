@@ -210,7 +210,7 @@ class FileBasedHints:
         # print(self.db.get_question(folder_name, question_no))
         # return questions_dict[str(question_no)]
                   
-    def get_general_hints(self, folder_name: str, question_no: int) -> None:
+    def get_general_hints(self, present_code: str, folder_name: str, question_no: int) -> None:
         """
         Generates hints for the file using the language model.
         

@@ -1,6 +1,6 @@
 {
-  "name": "frontend",
-  "displayName": "frontend",
+  "name": "pybuddy",
+  "displayName": "PyBuddy",
   "description": "",
   "version": "0.0.1",
   "engines": {
@@ -13,7 +13,7 @@
   "main": "./extension.js",
   "contributes": {
     "commands": [{
-      "command": "frontend.helloWorld",
+      "command": "pybuddy.helloWorld",
       "title": "Hello World"
     }]
   },
