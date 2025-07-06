@@ -1,9 +1,10 @@
 import os
+from database import Database
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
-from typing import List
+# from typing import List
 import fitz  # PyMuPDF
 from pydantic import BaseModel
 from langchain_core.output_parsers import PydanticOutputParser
@@ -41,6 +42,7 @@ class FileBasedHints:
         Initializes the FileBasedHints class.
 
         """
+        self.db = Database()
         self.model = "gemini-2.5-flash"
         os.environ["LANGCHAIN_TRACING_V2"] = "true"
         os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
@@ -67,7 +69,7 @@ class FileBasedHints:
         )
         self.chain = self.prompt | self.llm | self.parser
 
-    def execute_preprocessing(self, file_path: str) -> dict[int, str]:
+    def execute_preprocessing(self, file_path: str, folder_name: str = "default") -> dict[int, str]:
         """
         Executes the workflow for the file.
         """
@@ -75,19 +77,19 @@ class FileBasedHints:
         try:
             all_text = self.extract_text_pymupdf(file_path)
             questions_dict = self.create_questions(all_text)
-            self.save_questions(questions_dict)
+            self.save_questions(questions_dict, folder_name)
             return {"message": "Preprocessing completed successfully"}
         except Exception as e:
             print(e)
             return {"error": "Error in preprocessing file"}
         
-    def save_questions(self, questions_dict: dict[int, str]) -> None:
+    def save_questions(self, questions_dict: dict[int, str], folder_name: str) -> None:
         """
         Saves the questions to a file.
         """
-        pass
+        self.db.save_doc(folder_name, questions_dict)
         
-    def create_questions(self, all_text: List[str]) -> dict[int, str]:
+    def create_questions(self, all_text: list[str]) -> dict[int, str]:
         """
         Creates questions for the file using the language model.
 
@@ -119,20 +121,20 @@ class FileBasedHints:
         structured = []
         for page in all_text:
             # print(page)
-            structured_response: List[self.Question_Response] = self.chain.invoke({"query": query_text + "\n" + page})
+            structured_response: list[self.Question_Response] = self.chain.invoke({"query": query_text + "\n" + page})
             # print("-----------------------------------------------------------------------------------------------------------")
             # print(structured_response)
             structured.append(structured_response)
         # print("Before memory: ", self.memory.chat_memory)
 
-        print(structured)
+        # print(structured)
 
-        for i,data in enumerate(structured):
-            print(f"Page number: {i+1}")
-            print(data.questions_created_number)
-            # print(data.questions_created_number)
-            print(data.first_line_of_question)
-            print("-----------------------------------------------------------------------------------------------------------")
+        # for i,data in enumerate(structured):
+        #     print(f"Page number: {i+1}")
+        #     print(data.questions_created_number)
+        #     # print(data.questions_created_number)
+        #     print(data.first_line_of_question)
+        #     print("-----------------------------------------------------------------------------------------------------------")
         
         questions_dict = self.questions_divided(structured, all_text)
         return questions_dict
@@ -168,14 +170,12 @@ class FileBasedHints:
                 text += page
         all_questions.append(text)
             
-            
+        questions_dict = {}
         
         for i, question in enumerate(all_questions):
-            print("-----------------------------------------------------------------------------------------------------------")
-            print("Question NO: ", i+1)
-            print(question)
+            questions_dict[i+1] = question
         
-        return all_questions
+        return questions_dict
         
     def extract_text_pymupdf(self, file_path: str) -> list[str]:
         """
@@ -194,13 +194,23 @@ class FileBasedHints:
             # print(f"\n--- Page {i+1} ---\n{text}")
         return all_text
     
-    def get_question_text(self, question_no: int) -> str:
+    def get_question_text(self, folder_name: str, question_no: int) -> str:
         """
         Returns the text of the question.
         """
-        pass
+        try:
+            data = self.db.get_doc(folder_name, question_no)
+            return data.get(str(question_no))     # Return only the specific question
+        except Exception as e:
+            print(e)
+            return None
+
+        # print("question:", question)
+        
+        # print(self.db.get_question(folder_name, question_no))
+        # return questions_dict[str(question_no)]
                   
-    def get_general_hints(self, question_no: int) -> None:
+    def get_general_hints(self, present_code: str, folder_name: str, question_no: int) -> None:
         """
         Generates hints for the file using the language model.
         
@@ -208,8 +218,10 @@ class FileBasedHints:
             question_no (int): The number of the question to generate hints for.
         """
         print(f"Generating hints for question number: {question_no}")
-        question_text = self.get_question_text(question_no)
+        question_text = self.get_question_text(folder_name, question_no)
         
+        print("question_text:", question_text)
+        return question_text
         
         # response = self.client.models.generate_content(
         #     model=self.model, contents="Explain how AI works in a few words"

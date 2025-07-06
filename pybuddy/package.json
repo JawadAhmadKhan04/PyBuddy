@@ -1,0 +1,64 @@
+{
+  "name": "pybuddy",
+  "displayName": "PyBuddy",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.101.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [{
+      "command": "pybuddy.helloWorld",
+      "title": "Hello World"
+    },
+    {
+      "command": "pybuddy.logout",
+      "title": "Logout"
+    }],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pybuddy-sidebar",
+          "title": "PyBuddy",
+          "icon": "$(key)"
+        }
+      ]
+    },
+    "views": {
+      "pybuddy-sidebar": [
+        {
+          "id": "pybuddy-login",
+          "name": "Login",
+          "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "pybuddy.logout",
+          "when": "pybuddyLoggedIn && view == pybuddy-login",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.101.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "eslint": "^9.25.1",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
