@@ -15,7 +15,38 @@
     "commands": [{
       "command": "pybuddy.helloWorld",
       "title": "Hello World"
-    }]
+    },
+    {
+      "command": "pybuddy.logout",
+      "title": "Logout"
+    }],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pybuddy-sidebar",
+          "title": "PyBuddy",
+          "icon": "$(key)"
+        }
+      ]
+    },
+    "views": {
+      "pybuddy-sidebar": [
+        {
+          "id": "pybuddy-login",
+          "name": "Login",
+          "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "pybuddy.logout",
+          "when": "pybuddyLoggedIn && view == pybuddy-login",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "lint": "eslint .",

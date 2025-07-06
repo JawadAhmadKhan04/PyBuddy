@@ -1,0 +1,31 @@
+body, html {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: var(--vscode-font-family);
+    color: var(--vscode-foreground);
+    background-color: var(--vscode-editor-background);
+}
+
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100%;
+}
+
+.login-button {
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    padding: 10px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-family: var(--vscode-font-family);
+}
+
+.login-button:hover {
+    background-color: var(--vscode-button-hoverBackground);
+} 

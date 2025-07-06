@@ -1,6 +1,8 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 const vscode = require('vscode');
+const path = require('path');
+const fs = require('fs');
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -9,10 +11,25 @@ const vscode = require('vscode');
  * @param {vscode.ExtensionContext} context
  */
 function activate(context) {
-
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "pybuddy" is now active!');
+
+	const loginProvider = new LoginProvider(context.extensionUri);
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider('pybuddy-login', loginProvider)
+	);
+
+	// Register the logout command for the title bar
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pybuddy.logout', () => {
+			vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', false);
+			// Tell the webview to show the login button again
+			if (loginProvider._webviewView) {
+				loginProvider._webviewView.webview.postMessage({ type: 'showLogin' });
+			}
+		})
+	);
 
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with  registerCommand
@@ -25,6 +42,56 @@ function activate(context) {
 	});
 
 	context.subscriptions.push(disposable);
+}
+
+class LoginProvider {
+	constructor(extensionUri) {
+		this._extensionUri = extensionUri;
+		this._webviewView = null;
+	}
+
+	resolveWebviewView(webviewView) {
+		this._webviewView = webviewView;
+		webviewView.webview.options = {
+			enableScripts: true,
+			localResourceRoots: [vscode.Uri.joinPath(this._extensionUri, 'webview')]
+		};
+
+		webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+
+		webviewView.webview.onDidReceiveMessage(data => {
+			switch (data.type) {
+				case 'login':
+					vscode.window.showInformationMessage('Login Pressed');
+					vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', true);
+					// Hide the login button in the webview
+					webviewView.webview.postMessage({ type: 'hideLogin' });
+					break;
+				case 'logout':
+					vscode.window.showInformationMessage('Logout Pressed');
+					vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', false);
+					// Show the login button in the webview
+					webviewView.webview.postMessage({ type: 'showLogin' });
+					break;
+			}
+		});
+	}
+
+	_getHtmlForWebview(webview) {
+		const webviewFolder = vscode.Uri.joinPath(this._extensionUri, 'webview');
+		const htmlPath = vscode.Uri.joinPath(webviewFolder, 'login.html');
+		const cssPath = vscode.Uri.joinPath(webviewFolder, 'login.css');
+		const jsPath = vscode.Uri.joinPath(webviewFolder, 'login.js');
+
+		let html = fs.readFileSync(htmlPath.fsPath, 'utf8');
+		const cssUri = webview.asWebviewUri(cssPath);
+		const jsUri = webview.asWebviewUri(jsPath);
+
+		html = html.replace('href="login.css"', `href="${cssUri}"`);
+		html = html.replace('src="login.js"', `src="${jsUri}"`);
+
+		return html;
+	}
 }
 
 // This method is called when your extension is deactivated
