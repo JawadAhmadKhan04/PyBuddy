@@ -1,5 +1,15 @@
-import nltk
-import re
+from fastapi import FastAPI
+from file_based_hints import FileBasedHints
 
-if __name__=="__main__":
-    print("Hello World")
+app = FastAPI()
+hinter = FileBasedHints()
+
+@app.post("/preprocessing_file")
+async def get_root(file_path: str):
+    return hinter.execute_preprocessing(file_path)
+    
+@app.post("/get_general_hints/{question_no}")
+async def get_general_hints(question_no: int):
+    return hinter.get_general_hints(question_no)
+    
+

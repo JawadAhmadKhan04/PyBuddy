@@ -1,7 +1,5 @@
-import asyncio
-from file_based_hints import FileBasedHints, process_pdfs_in_folder
+from file_based_hints import FileBasedHints
 
-# hinter = FileBasedHints("")
-# hinter.preprocess_file()
+hinter = FileBasedHints()
+hinter.execute_preprocessing("testing_pdfs/test2.pdf")
 
-process_pdfs_in_folder("testing_pdfs")
