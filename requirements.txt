@@ -1,1 +1,7 @@
 nltk
+fastapi
+google-genai
+langchain_community
+langsmith
+langchain
+uvicorn
