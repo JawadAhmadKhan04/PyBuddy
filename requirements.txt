@@ -5,3 +5,4 @@ langchain_community
 langsmith
 langchain
 uvicorn
+redis
