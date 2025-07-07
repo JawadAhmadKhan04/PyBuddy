@@ -19,13 +19,18 @@
     {
       "command": "pybuddy.logout",
       "title": "Logout"
+    },
+    {
+      "command": "pybuddy.showHints",
+      "title": "Hints",
+      "icon": "$(light-bulb)"
     }],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "pybuddy-sidebar",
           "title": "PyBuddy",
-          "icon": "$(key)"
+          "icon": "assets/logo1.png"
         }
       ]
     },
@@ -39,6 +44,12 @@
       ]
     },
     "menus": {
+      "editor/title": [
+        {
+          "command": "pybuddy.showHints",
+          "group": "navigation@1"
+        }
+      ],
       "view/title": [
         {
           "command": "pybuddy.logout",
