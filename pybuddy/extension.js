@@ -52,11 +52,55 @@ function activate(context) {
 	// }
 
 	let showHints = vscode.commands.registerCommand('pybuddy.showHints', async function () {
-		vscode.window.showInformationMessage('Hints button clicked!');
+		await generateHintsForFile();
+	});
+
+	// Placeholder for the file location to generate hints for
+	// const fileLocationForHints = "testing_pdfs/QuestCamp GCR assignment examples.pdf";
+
+	async function generateHintsForFile() {
+		const activeEditor = vscode.window.activeTextEditor;
+		if (activeEditor) {
+			fileLocationForHints = activeEditor.document.uri.fsPath;
+			// vscode.window.showInformationMessage("Currently active file:", fileLocationForHints);
+			try {
+			const endpoint = "http://127.0.0.1:8000/generate_hints";
+			const requestBody = { file_path: fileLocationForHints };
+			const response = await fetch(endpoint, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(requestBody)
+			});
+			if (!response.ok) {
+				throw new Error(`Backend returned status ${response.status}`);
+			}
+			const data = await response.json();
+			if (data.code) {
+				vscode.window.showInformationMessage('Code: ' + data.code);
+			} else {
+				vscode.window.showWarningMessage('No hint returned by backend.');
+			}
+		} catch (error) {
+			vscode.window.showErrorMessage('Failed to generate hints: ' + error.message);
+		}
+			// Example: send it to webview
+			// webviewView.webview.postMessage({ type: 'activeFile', path: activeFilePath });
+		} else {
+			vscode.window.showInformationMessage("No active editor (no file is open).");
+		}
+		
+		
+	}
+
+
+	// Register the generateHints command
+	let generateHintsCmd = vscode.commands.registerCommand('pybuddy.generateHints', async function () {
+		await generateHintsForFile();
 	});
 
 	context.subscriptions.push(disposable);
 	context.subscriptions.push(showHints);
+	context.subscriptions.push(generateHintsCmd);
 }
 
 class LoginProvider {
