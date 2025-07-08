@@ -6,11 +6,9 @@ class Database:
         self.redis = Redis(host='localhost', port=6379, db=0)
     
     def save_doc(self, doc_name: str, questions: dict):
-        print(questions)
         self.redis.set(doc_name, json.dumps(questions))
-        print("-"*50)
 
-    def get_doc(self, doc_name: str, question_no: int):
+    def get_doc(self, doc_name: str):
         raw_data = self.redis.get(doc_name)
         if raw_data:
             data = json.loads(raw_data.decode())  # Decode bytes → str → dict
