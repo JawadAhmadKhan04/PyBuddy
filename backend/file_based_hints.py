@@ -8,7 +8,7 @@ from google import genai
 from google.genai import types
 import pathlib
 import json
-
+import question_separator_prompt
 load_dotenv()
 
 class FileBasedHints:
@@ -28,21 +28,47 @@ class FileBasedHints:
         self.db = Database()
         self.model = "gemini-2.5-flash"
         self.llm = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        
+    def create_files(self, folder_name: str, total_questions: int) -> None:
+        cwd = os.getcwd()
+        parent_dir = os.path.dirname(cwd)
 
-    def execute_preprocessing(self, file_path: str, folder_name: str = "default") -> dict[int, str]:
+        folder_path = os.path.join(parent_dir, folder_name)
+        os.makedirs(folder_path, exist_ok=True)
+        print("Current Working Directory:", folder_path)
+        for i in range(total_questions):
+            folder_name = f"question_{i+1}"
+            subfolder_path = os.path.join(folder_path, folder_name)
+
+            os.makedirs(subfolder_path, exist_ok=True)  # Create subfolder if it doesn't exist
+
+            file_path = os.path.join(subfolder_path, f"{folder_name}.py")
+            with open(file_path, "w") as f:
+                f.write(f"This is question {i+1}")
+
+
+    def execute_preprocessing(self, file_path: str, folder_name: str = "default", auto_file_creation: bool = False) -> dict[int, str]:
         """
         Executes the workflow for the file.
         """
         print("Executing workflow...")
         try:
+            # total_questions = 1
             # all_text = self.extract_text_pymupdf(file_path)
             questions_dict = self.create_questions(file_path)
             print(questions_dict)
             self.save_questions(questions_dict, folder_name)
+            total_questions = len(questions_dict["questions"])
+            # total_questions = 2
+            if auto_file_creation:
+                print(total_questions)
+                self.create_files(folder_name, total_questions)
+            else:
+                pass
             return {"message": "Preprocessing completed successfully"}
         except Exception as e:
-            print(e)
-            return {"error": "Error in preprocessing file"}
+            print(f"Error in execute_preprocessing: {str(e)}")
+            return {"error": f"Error in preprocessing file: {str(e)}"}
         
     def save_questions(self, questions_dict: dict[int, str], folder_name: str) -> None:
         """
@@ -54,58 +80,47 @@ class FileBasedHints:
         """
         Creates questions for the file using the language model.
         """
-        file_data_encoded = pathlib.Path(file_path)        
-        prompt = """This is an assignment, I want to separate each question separately from the assignment, 
-        and return the entire question in the asked format.
-        If there are any for the entire assignment, then return the instructions for the entire assignment.
-        For example, it could be the submission criteria, or if a specific topic for example "Recursion" is a must.
-        Return the instructions in the asked format.
-        Questions would always be starting with Q1, Q2, Q3 or like 'Question 1', 'Question 2', 'Question 3', etc.
-        They can also start with 'Task 1', 'Task 2', 'Task 3', etc. or any synonym like 'Problem 1', 'Problem 2', 'Problem 3', etc.
-        Each Questions can also contain sub-questions, you must not cater the sub-questions.
-        If for instance you think there is a question but there is no heading, then it will not be considered as a question.
-        If a new question is starting, it would specifically mention it.
-        For example, if the text is:
-        Question 1:
-        Solve all of the following questions:
-        1. Reverse a string
-        2. Find the sum of two numbers
-        Ignore any images, even if it lies inside a question. Instead of an image you should just return "IMAGE HERE".
-        Then you should return that the entire question is as a single question"Question 1: Solve all of the following questions: 1. Reverse a string 2. Find the sum of two numbers".
-        Make sure the questions are not overlapping with each other, and the questions are not repeated.
-        Make sure the formatting of the questions is correct. For instance if inside a question, there is a new line, then the output should also has it as a new line.
-        Lets take it step by step.
-        """
-        response = self.llm.models.generate_content(
-            model=self.model,
-            contents=[
-                types.Part.from_bytes(
-                    data=file_data_encoded.read_bytes(),
-                    mime_type='application/pdf',
-                ),
-                prompt
-            ],
-            config={
-                "response_mime_type": "application/json",
-                "response_schema": self.Question_Response,
-            },
-        )
         try:
-            parsed = json.loads(response.text)
-            # Reformat to match desired DB structure
-            questions_list = parsed.get('questions', [])
-            instructions = parsed.get('instructions', "")
-            questions_dict = {str(i+1): q for i, q in enumerate(questions_list)}
-            result = {
-                "questions": questions_dict,
-                "instructions": instructions
-            }
-            print(json.dumps(result, indent=2, ensure_ascii=False))
-            return result
+            file_data_encoded = pathlib.Path(file_path)
+            
+            # Check if file exists
+            if not file_data_encoded.exists():
+                raise Exception(f"File not found: {file_path}")
+            
+            prompt = question_separator_prompt.prompt
+            response = self.llm.models.generate_content(
+                model=self.model,
+                contents=[
+                    types.Part.from_bytes(
+                        data=file_data_encoded.read_bytes(),
+                        mime_type='application/pdf',
+                    ),
+                    prompt
+                ],
+                config={
+                    "response_mime_type": "application/json",
+                    "response_schema": self.Question_Response,
+                },
+            )
+            try:
+                parsed = json.loads(response.text)
+                # Reformat to match desired DB structure
+                questions_list = parsed.get('questions', [])
+                instructions = parsed.get('instructions', "")
+                questions_dict = {str(i+1): q for i, q in enumerate(questions_list)}
+                result = {
+                    "questions": questions_dict,
+                    "instructions": instructions
+                }
+                # print(json.dumps(result, indent=2, ensure_ascii=False))
+                return result
+            except Exception as e:
+                print("Could not parse response as JSON, printing raw text:")
+                print(response.text)
+                raise Exception(f"Failed to parse Gemini response: {str(e)}")
         except Exception as e:
-            print("Could not parse response as JSON, printing raw text:")
-            print(response.text)
-            return None
+            print(f"Error in create_questions: {str(e)}")
+            raise e
     
     def get_question_text(self, folder_name: str, question_no: int) -> tuple[str, str]:
         """
