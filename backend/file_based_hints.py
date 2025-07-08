@@ -154,6 +154,6 @@ class FileBasedHints:
         (question_text, instructions) = self.get_question_text(folder_name, question_no)
         print("question_text:", question_text)
         print("instructions:", instructions)
-        return question_text, instructions
+        return "This is a hint for question number: " + str(question_no)
  
         

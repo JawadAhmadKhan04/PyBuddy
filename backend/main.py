@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from file_based_hints import FileBasedHints
@@ -20,6 +20,9 @@ class PreprocessingRequest(BaseModel):
     file_path: str
     folder_name: str
     file_creation_method: str
+
+class GenerateHintsRequest(BaseModel):
+    file_path: str
 
 @app.post("/preprocessing_file")
 async def get_root(request: PreprocessingRequest):
@@ -45,9 +48,46 @@ async def get_root(request: PreprocessingRequest):
     except Exception as e:
         print(f"Error in preprocessing: {str(e)}")
         return {"error": f"Preprocessing failed: {str(e)}"}
+
     
-@app.post("/get_general_hints/{folder_name}/{question_no}")
-async def get_general_hints(present_code: str,folder_name: str, question_no: int):
-    return hinter.get_general_hints(present_code, folder_name, question_no)
+@app.post("/generate_hints")
+async def generate_hints(request: GenerateHintsRequest):
+    import os
+    file_path = request.file_path
+    folder_path = os.path.dirname(file_path)
+    question_folder = os.path.basename(folder_path)
+    parent_of_question_folder = os.path.basename(os.path.dirname(folder_path))
+    # Extract question number from question_X
+    question_number = None
+    if question_folder.startswith('question_'):
+        try:
+            question_number = question_folder.split('_')[1]
+            return {"code":hinter.get_general_hints(get_entire_code(folder_path), parent_of_question_folder, int(question_number))}
+
+        except IndexError:
+            question_number = None
+    if question_number is None:
+        file_name = os.path.basename(file_path)
+        if file_name.startswith('question_') and file_name.endswith('.py'):
+            try:
+                # print("IIINNNN")
+                question_number = file_name.split('_')[1].split('.')[0]
+                return {"code":hinter.get_general_hints(get_entire_code(folder_path), parent_of_question_folder, int(question_number))}
+            except IndexError:
+                question_number = None
     
+    # print(f"File path: {file_path}, Folder name: {parent_of_question_folder}, Question number: {question_number}")
+    # return {"folder_name": parent_of_question_folder, "question_number": question_number}
+
+def get_entire_code(folder_path: str) -> dict[str, str]:
+    import os
+    code_dict = {}
+    for file_name in os.listdir(folder_path):
+        file_path = os.path.join(folder_path, file_name)
+        if os.path.isfile(file_path):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                code_dict[file_name] = f.read()
+    print("code_dict:", code_dict)
+    return code_dict
+
 
