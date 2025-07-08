@@ -41,7 +41,65 @@ function activate(context) {
 		vscode.window.showInformationMessage('Hello World from PyBuddy!');
 	});
 
+	let selectedSpecificHints = [];
+
+	// Load saved hints from globalState
+	selectedSpecificHints = context.globalState.get('pybuddy.selectedSpecificHints', []);
+	if (selectedSpecificHints.length > 0) {
+		vscode.window.showInformationMessage(`Previously chosen specific hints: ${selectedSpecificHints.join(', ')}`);
+	} else {
+		vscode.window.showInformationMessage('No specific hints previously chosen.');
+	}
+
+	let showHints = vscode.commands.registerCommand('pybuddy.showHints', async function () {
+		const specificHintOptions = [
+			{ label: 'Option 1', picked: selectedSpecificHints.includes('Option 1') },
+			{ label: 'Option 2', picked: selectedSpecificHints.includes('Option 2') },
+			{ label: 'Option 3', picked: selectedSpecificHints.includes('Option 3') },
+			{ label: 'Option 4', picked: selectedSpecificHints.includes('Option 4') },
+			{ label: 'Option 5', picked: selectedSpecificHints.includes('Option 5') },
+			{ label: 'Option 6', picked: selectedSpecificHints.includes('Option 6') },
+			{ label: 'Option 7', picked: selectedSpecificHints.includes('Option 7') },
+			{ label: 'Option 8', picked: selectedSpecificHints.includes('Option 8') },
+			{ label: 'Option 9', picked: selectedSpecificHints.includes('Option 9') },
+			{ label: 'Option 10', picked: selectedSpecificHints.includes('Option 10') }
+		];
+
+		const mainOptions = [
+			{ label: 'General hints', description: 'Show general hints related to assignment' },
+			{ label: 'Specific hints', description: 'Show the specific hints chosen' },
+			{ label: 'Specific hints →', description: 'Choose Specific hints related to code' }
+		];
+
+		const mainPick = await vscode.window.showQuickPick(mainOptions, {
+			placeHolder: 'Select a hint type',
+			canPickMany: false
+		});
+
+		if (!mainPick) return;
+
+		if (mainPick.label === 'General hints') {
+			vscode.window.showInformationMessage('General hints clicked');
+		} else if (mainPick.label === 'Specific hints') {
+			vscode.window.showInformationMessage('Specific hints clicked');
+		} else if (mainPick.label === 'Specific hints →') {
+			vscode.window.showInformationMessage('Specific hints choose options clicked');
+			const picked = await vscode.window.showQuickPick(specificHintOptions, {
+				placeHolder: 'Select specific hint options',
+				canPickMany: true
+			});
+			if (picked) {
+				selectedSpecificHints = picked.map(option => option.label); // Save the chosen hints
+				await context.globalState.update('pybuddy.selectedSpecificHints', selectedSpecificHints); // Persist across sessions
+				picked.forEach(option => {
+					vscode.window.showInformationMessage(`${option.label} is ${option.picked ? 'ON' : 'OFF'}`);
+				});
+			}
+		}
+	});
+
 	context.subscriptions.push(disposable);
+	context.subscriptions.push(showHints);
 }
 
 class LoginProvider {
