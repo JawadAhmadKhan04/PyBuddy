@@ -65,8 +65,14 @@ function activate(context) {
 	}
 
 	const loginProvider = new LoginProvider(context.extensionUri, handleLoginFlow);
+	const chatProvider = new ChatProvider(context.extensionUri);
+	
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider('pybuddy-login', loginProvider)
+	);
+	
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider('pybuddy-chat', chatProvider)
 	);
 
 	// Register the login command for the title bar
@@ -178,8 +184,30 @@ function activate(context) {
 				throw new Error(`Backend returned status ${response.status}`);
 			}
 			const data = await response.json();
-			if (data.code) {
-				vscode.window.showInformationMessage('Code: ' + data.code);
+			if (data.hint) {
+				// Send hint to chat interface
+				if (chatProvider._webviewView) {
+					// Extract folder path from file path
+					const filePath = activeEditor.document.uri.fsPath;
+					const pathParts = filePath.split('\\');
+					const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
+					if (fileNameIndex > 0) {
+						const folderPath = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
+						const hintMessage = `💡 Hint for ${folderPath}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
+						chatProvider._webviewView.webview.postMessage({ 
+							type: 'hint', 
+							content: hintMessage 
+						});
+					} else {
+						// Fallback to just the filename if path structure is different
+						const hintMessage = `💡 Hint for ${activeEditor.document.fileName.split('/').pop()}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
+						chatProvider._webviewView.webview.postMessage({ 
+							type: 'hint', 
+							content: hintMessage 
+						});
+					}
+				}
+				vscode.window.showInformationMessage('Hint sent to chat!');
 			} else {
 				vscode.window.showWarningMessage('No hint returned by backend.');
 			}
@@ -201,9 +229,17 @@ function activate(context) {
 		await generateHintsForFile();
 	});
 
+	// Register the clearHints command
+	let clearHintsCmd = vscode.commands.registerCommand('pybuddy.clearHints', function () {
+		if (chatProvider._webviewView) {
+			chatProvider._webviewView.webview.postMessage({ type: 'clearChat' });
+		}
+	});
+
 	context.subscriptions.push(disposable);
 	context.subscriptions.push(showHints);
 	context.subscriptions.push(generateHintsCmd);
+	context.subscriptions.push(clearHintsCmd);
 }
 
 class LoginProvider {
@@ -262,6 +298,60 @@ class LoginProvider {
 
 		html = html.replace('href="login.css"', `href="${cssUri}"`);
 		html = html.replace('src="login.js"', `src="${jsUri}"`);
+
+		return html;
+	}
+}
+
+class ChatProvider {
+	constructor(extensionUri) {
+		this._extensionUri = extensionUri;
+		this._webviewView = null;
+		this._messages = [];
+	}
+
+	resolveWebviewView(webviewView) {
+		this._webviewView = webviewView;
+		webviewView.webview.options = {
+			enableScripts: true,
+			localResourceRoots: [vscode.Uri.joinPath(this._extensionUri, 'webview')]
+		};
+
+		webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+
+		webviewView.webview.onDidReceiveMessage(async data => {
+			switch (data.type) {
+				case 'saveMessages':
+					this._messages = data.messages;
+					break;
+				case 'loadMessages':
+					// Send saved messages back to webview
+					webviewView.webview.postMessage({
+						type: 'loadMessages',
+						messages: this._messages
+					});
+					break;
+				case 'chatCleared':
+					this._messages = [];
+					break;
+			}
+		});
+	}
+
+
+
+	_getHtmlForWebview(webview) {
+		const webviewFolder = vscode.Uri.joinPath(this._extensionUri, 'webview');
+		const htmlPath = vscode.Uri.joinPath(webviewFolder, 'chat.html');
+		const cssPath = vscode.Uri.joinPath(webviewFolder, 'chat.css');
+		const jsPath = vscode.Uri.joinPath(webviewFolder, 'chat.js');
+
+		let html = fs.readFileSync(htmlPath.fsPath, 'utf8');
+		const cssUri = webview.asWebviewUri(cssPath);
+		const jsUri = webview.asWebviewUri(jsPath);
+
+		html = html.replace('href="chat.css"', `href="${cssUri}"`);
+		html = html.replace('src="chat.js"', `src="${jsUri}"`);
 
 		return html;
 	}
