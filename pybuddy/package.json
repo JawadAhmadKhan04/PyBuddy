@@ -17,8 +17,17 @@
       "title": "Hello World"
     },
     {
+      "command": "pybuddy.login",
+      "title": "Login"
+    },
+    {
       "command": "pybuddy.logout",
       "title": "Logout"
+    },
+    {
+      "command": "pybuddy.addApiKey",
+      "title": "Add API Key",
+      "icon": "$(add)"
     },
     {
       "command": "pybuddy.showHints",
@@ -51,6 +60,16 @@
         }
       ],
       "view/title": [
+        {
+          "command": "pybuddy.login",
+          "when": "!pybuddyLoggedIn && view == pybuddy-login",
+          "group": "navigation"
+        },
+        {
+          "command": "pybuddy.addApiKey",
+          "when": "view == pybuddy-login",
+          "group": "navigation"
+        },
         {
           "command": "pybuddy.logout",
           "when": "pybuddyLoggedIn && view == pybuddy-login",
