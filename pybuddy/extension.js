@@ -15,9 +15,112 @@ function activate(context) {
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "pybuddy" is now active!');
 
-	const loginProvider = new LoginProvider(context.extensionUri);
+	// Extract login flow into a reusable function
+	async function handleLoginFlow() {
+		await vscode.window.withProgress(
+			{
+				location: vscode.ProgressLocation.Notification,
+				title: 'Loading...',
+				cancellable: false
+			},
+			async (progress) => {
+				try {
+					const file_path = "testing_pdfs/QuestCamp GCR assignment examples.pdf";
+					// Extract the file name without extension
+					const fileName = file_path.split('/').pop();  // "QuestCamp GCR assignment examples.pdf"
+					const folder_name = fileName.substring(0, fileName.lastIndexOf('.'));
+					console.log(folder_name); // Output: QuestCamp GCR assignment examples
+					const file_creation_method = "Create files on auto"
+					const endpoint = "http://127.0.0.1:8000/preprocessing_file"
+					const requestBody = {
+						file_path: file_path,
+						folder_name: folder_name,
+						file_creation_method: file_creation_method
+					}
+					const response = await fetch(endpoint, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+						},
+						body: JSON.stringify(requestBody)
+					});
+					if (!response.ok) {
+						throw new Error(`Backend returned status ${response.status}`);
+					}
+					const data = await response.json();
+					if (data.folder_path) {
+						vscode.window.showInformationMessage('Folder path: ' + data.folder_path);
+						await openFolderInExplorer(data.folder_path);
+					} else if (data.error) {
+						vscode.window.showErrorMessage('Error: ' + data.error);
+					} else {
+						vscode.window.showWarningMessage('Folder was created but no folder path was returned by the backend.');
+					}
+				} catch (error) {
+					console.error('Error:', error);
+					vscode.window.showErrorMessage(`Backend request failed: ${error.message}`);
+				}
+			}
+		);
+	}
+
+	const loginProvider = new LoginProvider(context.extensionUri, handleLoginFlow);
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider('pybuddy-login', loginProvider)
+	);
+
+	// Register the login command for the title bar
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pybuddy.login', () => {
+			vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', true);
+			// Tell the webview to hide the login button
+			if (loginProvider._webviewView) {
+				loginProvider._webviewView.webview.postMessage({ type: 'hideLogin' });
+			}
+			// Trigger the same login flow as the webview login button
+			handleLoginFlow();
+		})
+	);
+
+	// Register the add API key command for the title bar
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pybuddy.addApiKey', async () => {
+			const apiKey = await vscode.window.showInputBox({
+				prompt: 'Enter your Gemini API Key',
+				password: true, // Hide the input for security
+				placeHolder: 'AIzaSyC...',
+				validateInput: (input) => {
+					if (!input || input.trim() === '') {
+						return 'API Key cannot be empty';
+					}
+					if (input.length < 10) {
+						return 'API Key seems too short';
+					}
+					return null; // Valid input
+				}
+			});
+
+			if (apiKey) {
+				// Store the API key in global state for persistence
+				context.globalState.update('pybuddy.geminiApiKey', apiKey);
+
+				// Send the API key to the backend
+				try {
+					const response = await fetch('http://127.0.0.1:8000/add_api_key', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ api_key: apiKey })
+					});
+					if (!response.ok) {
+						throw new Error(`Backend returned status ${response.status}`);
+					}
+					const data = await response.json();
+					vscode.window.showInformationMessage(data.message || 'API key sent to backend successfully!');
+				} catch (error) {
+					vscode.window.showErrorMessage('Failed to send API key to backend: ' + error.message);
+				}
+			}
+		})
 	);
 
 	// Register the logout command for the title bar
@@ -41,74 +144,76 @@ function activate(context) {
 		vscode.window.showInformationMessage('Hello World from PyBuddy!');
 	});
 
-	let selectedSpecificHints = [];
+	// let selectedSpecificHints = [];
 
-	// Load saved hints from globalState
-	selectedSpecificHints = context.globalState.get('pybuddy.selectedSpecificHints', []);
-	if (selectedSpecificHints.length > 0) {
-		vscode.window.showInformationMessage(`Previously chosen specific hints: ${selectedSpecificHints.join(', ')}`);
-	} else {
-		vscode.window.showInformationMessage('No specific hints previously chosen.');
-	}
+	// // Load saved hints from globalState
+	// selectedSpecificHints = context.globalState.get('pybuddy.selectedSpecificHints', []);
+	// if (selectedSpecificHints.length > 0) {
+	// 	vscode.window.showInformationMessage(`Previously chosen specific hints: ${selectedSpecificHints.join(', ')}`);
+	// } else {
+	// 	vscode.window.showInformationMessage('No specific hints previously chosen.');
+	// }
 
 	let showHints = vscode.commands.registerCommand('pybuddy.showHints', async function () {
-		const specificHintOptions = [
-			{ label: 'Option 1', picked: selectedSpecificHints.includes('Option 1') },
-			{ label: 'Option 2', picked: selectedSpecificHints.includes('Option 2') },
-			{ label: 'Option 3', picked: selectedSpecificHints.includes('Option 3') },
-			{ label: 'Option 4', picked: selectedSpecificHints.includes('Option 4') },
-			{ label: 'Option 5', picked: selectedSpecificHints.includes('Option 5') },
-			{ label: 'Option 6', picked: selectedSpecificHints.includes('Option 6') },
-			{ label: 'Option 7', picked: selectedSpecificHints.includes('Option 7') },
-			{ label: 'Option 8', picked: selectedSpecificHints.includes('Option 8') },
-			{ label: 'Option 9', picked: selectedSpecificHints.includes('Option 9') },
-			{ label: 'Option 10', picked: selectedSpecificHints.includes('Option 10') }
-		];
+		await generateHintsForFile();
+	});
 
-		const mainOptions = [
-			{ label: 'General hints', description: 'Show general hints related to assignment' },
-			{ label: 'Specific hints', description: 'Show the specific hints chosen' },
-			{ label: 'Specific hints →', description: 'Choose Specific hints related to code' }
-		];
+	// Placeholder for the file location to generate hints for
+	// const fileLocationForHints = "testing_pdfs/QuestCamp GCR assignment examples.pdf";
 
-		const mainPick = await vscode.window.showQuickPick(mainOptions, {
-			placeHolder: 'Select a hint type',
-			canPickMany: false
-		});
-
-		if (!mainPick) return;
-
-		if (mainPick.label === 'General hints') {
-			vscode.window.showInformationMessage('General hints clicked');
-		} else if (mainPick.label === 'Specific hints') {
-			vscode.window.showInformationMessage('Specific hints clicked');
-		} else if (mainPick.label === 'Specific hints →') {
-			vscode.window.showInformationMessage('Specific hints choose options clicked');
-			const picked = await vscode.window.showQuickPick(specificHintOptions, {
-				placeHolder: 'Select specific hint options',
-				canPickMany: true
+	async function generateHintsForFile() {
+		const activeEditor = vscode.window.activeTextEditor;
+		if (activeEditor) {
+			fileLocationForHints = activeEditor.document.uri.fsPath;
+			// vscode.window.showInformationMessage("Currently active file:", fileLocationForHints);
+			try {
+			const endpoint = "http://127.0.0.1:8000/generate_hints";
+			const requestBody = { file_path: fileLocationForHints };
+			const response = await fetch(endpoint, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(requestBody)
 			});
-			if (picked) {
-				selectedSpecificHints = picked.map(option => option.label); // Save the chosen hints
-				await context.globalState.update('pybuddy.selectedSpecificHints', selectedSpecificHints); // Persist across sessions
-				picked.forEach(option => {
-					vscode.window.showInformationMessage(`${option.label} is ${option.picked ? 'ON' : 'OFF'}`);
-				});
+			if (!response.ok) {
+				throw new Error(`Backend returned status ${response.status}`);
 			}
+			const data = await response.json();
+			if (data.code) {
+				vscode.window.showInformationMessage('Code: ' + data.code);
+			} else {
+				vscode.window.showWarningMessage('No hint returned by backend.');
+			}
+		} catch (error) {
+			vscode.window.showErrorMessage('Failed to generate hints: ' + error.message);
 		}
+			// Example: send it to webview
+			// webviewView.webview.postMessage({ type: 'activeFile', path: activeFilePath });
+		} else {
+			vscode.window.showInformationMessage("No active editor (no file is open).");
+		}
+		
+		
+	}
+
+
+	// Register the generateHints command
+	let generateHintsCmd = vscode.commands.registerCommand('pybuddy.generateHints', async function () {
+		await generateHintsForFile();
 	});
 
 	context.subscriptions.push(disposable);
 	context.subscriptions.push(showHints);
+	context.subscriptions.push(generateHintsCmd);
 }
 
 class LoginProvider {
-	constructor(extensionUri) {
+	constructor(extensionUri, handleLoginFlow) {
 		this._extensionUri = extensionUri;
+		this._handleLoginFlow = handleLoginFlow;
 		this._webviewView = null;
 	}
 
-	resolveWebviewView(webviewView) {
+			resolveWebviewView(webviewView) {
 		this._webviewView = webviewView;
 		webviewView.webview.options = {
 			enableScripts: true,
@@ -117,13 +222,23 @@ class LoginProvider {
 
 		webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-		webviewView.webview.onDidReceiveMessage(data => {
+		let isLoading = false;
+
+		webviewView.webview.onDidReceiveMessage(async data => {
 			switch (data.type) {
 				case 'login':
-					vscode.window.showInformationMessage('Login Pressed');
+					// vscode.window.showInformationMessage('Login Pressed');
 					vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', true);
 					// Hide the login button in the webview
 					webviewView.webview.postMessage({ type: 'hideLogin' });
+					// Trigger the login flow
+					if (isLoading) {
+						vscode.window.showWarningMessage('Please wait for the current operation to finish.');
+						return;
+					}
+					isLoading = true;
+					await this._handleLoginFlow();
+					isLoading = false;
 					break;
 				case 'logout':
 					vscode.window.showInformationMessage('Logout Pressed');
@@ -150,6 +265,19 @@ class LoginProvider {
 
 		return html;
 	}
+}
+
+// Helper function to open folder in Explorer
+async function openFolderInExplorer(folderPath) {
+    try {
+        const uri = vscode.Uri.file(folderPath);
+        // If no folder is open, open this folder as the workspace
+        await vscode.commands.executeCommand('vscode.openFolder', uri, false);
+		vscode.window.showInformationMessage("Opening folder");
+
+    } catch (err) {
+        vscode.window.showErrorMessage('Could not open folder: ' + err.message);
+    }
 }
 
 // This method is called when your extension is deactivated
