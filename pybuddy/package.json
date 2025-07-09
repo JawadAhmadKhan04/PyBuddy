@@ -33,6 +33,11 @@
       "command": "pybuddy.showHints",
       "title": "Hints",
       "icon": "$(light-bulb)"
+    },
+    {
+      "command": "pybuddy.clearHints",
+      "title": "Clear Hints",
+      "icon": "$(trash)"
     }],
     "viewsContainers": {
       "activitybar": [
@@ -48,6 +53,11 @@
         {
           "id": "pybuddy-login",
           "name": "Login",
+          "type": "webview"
+        },
+        {
+          "id": "pybuddy-chat",
+          "name": "Hints",
           "type": "webview"
         }
       ]
@@ -73,6 +83,11 @@
         {
           "command": "pybuddy.logout",
           "when": "pybuddyLoggedIn && view == pybuddy-login",
+          "group": "navigation"
+        },
+        {
+          "command": "pybuddy.clearHints",
+          "when": "view == pybuddy-chat",
           "group": "navigation"
         }
       ]

@@ -22,5 +22,8 @@ prompt = """This is an assignment, I want to separate each question separately f
         Then you should return that the entire question is as a single question"Question 1: Solve all of the following questions: 1. Reverse a string 2. Find the sum of two numbers".
         Make sure the questions are not overlapping with each other, and the questions are not repeated.
         Make sure the formatting of the questions is correct. For instance if inside a question, there is a new line, then the output should also has it as a new line.
+        
+        Do not at any cost duplicate the information of the questions.
+        
         Lets take it step by step.
         """
