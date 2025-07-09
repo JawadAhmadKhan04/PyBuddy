@@ -26,8 +26,12 @@ class FileBasedHints:
 
         """
         self.db = Database()
+        api_key = self.db.get_api_key()
+        print("api_key:", api_key)
+        if api_key:
+            os.environ["GEMINI_API_KEY"] = api_key.decode("utf-8")
         self.model = "gemini-2.5-flash"
-        self.llm = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        self.llm = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
         
     def create_files(self, folder_name: str, total_questions: int) -> None:
         cwd = os.getcwd()
@@ -44,7 +48,7 @@ class FileBasedHints:
 
             file_path = os.path.join(subfolder_path, f"{folder_name}.py")
             with open(file_path, "w") as f:
-                f.write(f"This is question {i+1}")
+                f.write(f"# This is question {i+1}")
 
 
     def execute_preprocessing(self, file_path: str, folder_name: str = "default", auto_file_creation: bool = False) -> dict[int, str]:
@@ -142,6 +146,15 @@ class FileBasedHints:
         
         # print(self.db.get_question(folder_name, question_no))
         # return questions_dict[str(question_no)]
+        
+    def add_api_key(self, api_key: str) -> None:
+        """
+        Adds the API key to the database.
+        """
+        self.db.save_api_key(api_key)
+        self.llm = genai.Client(api_key=api_key)
+        # print(os.getenv("GEMINI_API_KEY"))
+
                   
     def get_general_hints(self, present_code: str, folder_name: str, question_no: int) -> None:
         """
