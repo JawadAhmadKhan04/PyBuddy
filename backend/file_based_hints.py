@@ -156,7 +156,7 @@ class FileBasedHints:
         # print(os.getenv("GEMINI_API_KEY"))
 
                   
-    def get_general_hints(self, present_code: str, folder_name: str, question_no: int) -> None:
+    def get_general_hints(self, present_code: dict[str, str], folder_name: str, question_no: int) -> None:
         """
         Generates hints for the file using the language model.
         
@@ -167,6 +167,9 @@ class FileBasedHints:
         (question_text, instructions) = self.get_question_text(folder_name, question_no)
         print("question_text:", question_text)
         print("instructions:", instructions)
-        return "This is a hint for question number: " + str(question_no)
+        
+        print("present_code:", present_code)
+        
+        return {"hint": {"hint_text": "This is a hint for question number: " + str(question_no), "hint_topic": "This is hint topic for question number: " + str(question_no)}}
  
         
