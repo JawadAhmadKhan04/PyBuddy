@@ -4,6 +4,12 @@ class Database:
     
     def __init__(self):
         self.redis = Redis(host='localhost', port=6379, db=0)
+        
+    def save_api_key(self, api_key: str):
+        self.redis.set("api_key", api_key)
+    
+    def get_api_key(self):
+        return self.redis.get("api_key")
     
     def save_doc(self, doc_name: str, questions: dict):
         self.redis.set(doc_name, json.dumps(questions))

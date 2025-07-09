@@ -24,6 +24,9 @@ class PreprocessingRequest(BaseModel):
 class GenerateHintsRequest(BaseModel):
     file_path: str
 
+class AddApiKeyRequest(BaseModel):
+    api_key: str
+
 @app.post("/preprocessing_file")
 async def get_root(request: PreprocessingRequest):
     try:
@@ -37,6 +40,7 @@ async def get_root(request: PreprocessingRequest):
             return {"error": f"File not found: {request.file_path}"}
         
         result = hinter.execute_preprocessing(request.file_path, request.folder_name, auto_file_creation)
+        print("result:", result)
         # Determine the absolute folder path (parent of cwd + folder_name)
         cwd = os.getcwd()
         parent_dir = os.path.dirname(cwd)
@@ -44,12 +48,19 @@ async def get_root(request: PreprocessingRequest):
         folder_path = os.path.abspath(folder_path)
         # print(hinter.get_general_hints(request.folder_name, 1))
         print(f"Folder path: {folder_path} which is to be opened in the frontend")
+        if result.get("error"):
+            return {"error": "API Key is Invalid. Either enter a valid API key or check if the API key is not expired."}
         return {"message": "Preprocessing completed successfully", "folder_path": folder_path}
     except Exception as e:
         print(f"Error in preprocessing: {str(e)}")
         return {"error": f"Preprocessing failed: {str(e)}"}
 
-    
+@app.post("/add_api_key")
+async def add_api_key(request: AddApiKeyRequest):
+    api_key = request.api_key
+    hinter.add_api_key(api_key)
+    return {"message": "API key added successfully"}
+
 @app.post("/generate_hints")
 async def generate_hints(request: GenerateHintsRequest):
     import os
