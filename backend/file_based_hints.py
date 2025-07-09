@@ -160,6 +160,7 @@ class FileBasedHints:
         # print(os.getenv("GEMINI_API_KEY"))
 
                   
+
     def get_general_hints(self, present_code: dict[str, str], folder_name: str, question_no: int) -> dict:
         """
         Generates hints for the file using the language model.
