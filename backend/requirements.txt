@@ -1,0 +1,6 @@
+redis
+google.genai
+pydantic
+dotenv
+fastapi
+redis
