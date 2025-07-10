@@ -175,62 +175,71 @@ function activate(context) {
 	async function generateHintsForFile() {
 		const activeEditor = vscode.window.activeTextEditor;
 		if (activeEditor) {
-			const filePath = activeEditor.document.uri.fsPath;
-			const folderPath = path.dirname(filePath);
+			await vscode.window.withProgress(
+				{
+					location: vscode.ProgressLocation.Notification,
+					title: 'Generating hints...',
+					cancellable: false
+				},
+				async (progress) => {
+					const filePath = activeEditor.document.uri.fsPath;
+					const folderPath = path.dirname(filePath);
 
-			// Read all files in the folder and build codeDict
-			let codeDict = {};
-			const files = fs.readdirSync(folderPath);
-			for (const file of files) {
-				const fullPath = path.join(folderPath, file);
-				if (fs.statSync(fullPath).isFile()) {
-					codeDict[file] = fs.readFileSync(fullPath, 'utf-8');
-				}
-			}
-
-			try {
-				const endpoint = "http://127.0.0.1:8000/generate_hints";
-				const requestBody = { file_path: filePath, code_dict: codeDict };
-				const response = await fetch(endpoint, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(requestBody)
-				});
-				if (!response.ok) {
-					throw new Error(`Backend returned status ${response.status}`);
-				}
-				const data = await response.json();
-				console.log(data.hint)
-
-				if (data.hint) {
-					// Send hint to chat interface
-					if (chatProvider._webviewView) {
-						// Extract folder path from file path
-						const pathParts = filePath.split('\\');
-						const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
-						if (fileNameIndex > 0) {
-							const folderPathDisplay = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
-							const hintMessage = `💡 Hint for ${folderPathDisplay}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
-							chatProvider._webviewView.webview.postMessage({ 
-								type: 'hint', 
-								content: hintMessage 
-							});
-						} else {
-							// Fallback to just the filename if path structure is different
-							const hintMessage = `💡 Hint for ${activeEditor.document.fileName.split('/').pop()}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
-							chatProvider._webviewView.webview.postMessage({ 
-								type: 'hint', 
-								content: hintMessage 
-							});
+					// Read all files in the folder and build codeDict
+					let codeDict = {};
+					const files = fs.readdirSync(folderPath);
+					for (const file of files) {
+						const fullPath = path.join(folderPath, file);
+						if (fs.statSync(fullPath).isFile()) {
+							codeDict[file] = fs.readFileSync(fullPath, 'utf-8');
 						}
 					}
-					vscode.window.showInformationMessage('Hint sent to chat!');
-				} else {
-					vscode.window.showWarningMessage('No hint returned by backend.');
+
+					try {
+						const endpoint = "http://127.0.0.1:8000/generate_hints";
+						const requestBody = { file_path: filePath, code_dict: codeDict };
+						const response = await fetch(endpoint, {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify(requestBody)
+						});
+						if (!response.ok) {
+							throw new Error(`Backend returned status ${response.status}`);
+						}
+						const data = await response.json();
+						console.log(data.hint)
+
+						if (data.hint) {
+							// Send hint to chat interface
+							if (chatProvider._webviewView) {
+								// Extract folder path from file path
+								const pathParts = filePath.split('\\');
+								const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
+								if (fileNameIndex > 0) {
+									const folderPathDisplay = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
+									const hintMessage = `💡 Hint for ${folderPathDisplay}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
+									chatProvider._webviewView.webview.postMessage({ 
+										type: 'hint', 
+										content: hintMessage 
+									});
+								} else {
+									// Fallback to just the filename if path structure is different
+									const hintMessage = `💡 Hint for ${activeEditor.document.fileName.split('/').pop()}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
+									chatProvider._webviewView.webview.postMessage({ 
+										type: 'hint', 
+										content: hintMessage 
+									});
+								}
+							}
+							vscode.window.showInformationMessage('Hint sent to chat!');
+						} else {
+							vscode.window.showWarningMessage('No hint returned by backend.');
+						}
+					} catch (error) {
+						vscode.window.showErrorMessage('Failed to generate hints: ' + error.message);
+					}
 				}
-			} catch (error) {
-				vscode.window.showErrorMessage('Failed to generate hints: ' + error.message);
-			}
+			);
 		} else {
 			vscode.window.showInformationMessage("No active editor (no file is open).");
 		}
@@ -239,73 +248,82 @@ function activate(context) {
 	async function generateQuestionsForFile() {
 		const activeEditor = vscode.window.activeTextEditor;
 		if (activeEditor) {
-			const filePath = activeEditor.document.uri.fsPath;
-			try {
-				const endpoint = "http://127.0.0.1:8000/get_question";
-				const requestBody = { file_path: filePath };
-				const response = await fetch(endpoint, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(requestBody)
-				});
-				if (!response.ok) {
-					throw new Error(`Backend returned status ${response.status}`);
-				}
-				const data = await response.json();
-				console.log(data);
-
-				if (data.question_text || data.instructions || data.links) {
-					// Send question to question interface
-					if (questionProvider._webviewView) {
-						// Extract folder path from file path
-						const pathParts = filePath.split('\\');
-						const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
-						if (fileNameIndex > 0) {
-							const folderPath = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
-							
-							let questionMessage = `📋 Assignment: ${folderPath.replace("📋 Question for ", "").split("\\").slice(0, -1).join("\\")} - ${folderPath.split("\\").pop()}\n\n`;
-							
-							if (data.question_text) {
-								questionMessage += `**Question:**\n${data.question_text}\n\n`;
-							}
-							
-							if (data.instructions) {
-								questionMessage += `**Instructions:**\n${data.instructions}`;
-							}
-							
-							if (data.links) {
-								questionMessage += `**Links:**\n${data.links}`;
-							}
-							
-							questionProvider._webviewView.webview.postMessage({ 
-								type: 'question', 
-								content: questionMessage 
-							});
-						} else {
-							// Fallback to just the filename if path structure is different
-							let questionMessage = `📋 Question for ${activeEditor.document.fileName.split('/').pop()}\n\n`;
-							
-							if (data.question_text) {
-								questionMessage += `**Question:**\n${data.question_text}\n\n`;
-							}
-							
-							if (data.instructions) {
-								questionMessage += `**Instructions:**\n${data.instructions}`;
-							}
-							
-							questionProvider._webviewView.webview.postMessage({ 
-								type: 'question', 
-								content: questionMessage 
-							});
+			await vscode.window.withProgress(
+				{
+					location: vscode.ProgressLocation.Notification,
+					title: 'Loading questions...',
+					cancellable: false
+				},
+				async (progress) => {
+					const filePath = activeEditor.document.uri.fsPath;
+					try {
+						const endpoint = "http://127.0.0.1:8000/get_question";
+						const requestBody = { file_path: filePath };
+						const response = await fetch(endpoint, {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify(requestBody)
+						});
+						if (!response.ok) {
+							throw new Error(`Backend returned status ${response.status}`);
 						}
+						const data = await response.json();
+						console.log(data);
+
+						if (data.question_text || data.instructions || data.links) {
+							// Send question to question interface
+							if (questionProvider._webviewView) {
+								// Extract folder path from file path
+								const pathParts = filePath.split('\\');
+								const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
+								if (fileNameIndex > 0) {
+									const folderPath = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
+									
+									let questionMessage = `📋 Assignment: ${folderPath.replace("📋 Question for ", "").split("\\").slice(0, -1).join("\\")} - ${folderPath.split("\\").pop()}\n\n`;
+									
+									if (data.question_text) {
+										questionMessage += `**Question:**\n${data.question_text}\n\n`;
+									}
+									
+									if (data.instructions) {
+										questionMessage += `**Instructions:**\n${data.instructions}`;
+									}
+									
+									if (data.links) {
+										questionMessage += `**Links:**\n${data.links}`;
+									}
+									
+									questionProvider._webviewView.webview.postMessage({ 
+										type: 'question', 
+										content: questionMessage 
+									});
+								} else {
+									// Fallback to just the filename if path structure is different
+									let questionMessage = `📋 Question for ${activeEditor.document.fileName.split('/').pop()}\n\n`;
+									
+									if (data.question_text) {
+										questionMessage += `**Question:**\n${data.question_text}\n\n`;
+									}
+									
+									if (data.instructions) {
+										questionMessage += `**Instructions:**\n${data.instructions}`;
+									}
+									
+									questionProvider._webviewView.webview.postMessage({ 
+										type: 'question', 
+										content: questionMessage 
+									});
+								}
+							}
+							vscode.window.showInformationMessage('Question sent to questions panel!');
+						} else {
+							vscode.window.showWarningMessage('No question returned by backend.');
+						}
+					} catch (error) {
+						vscode.window.showErrorMessage('Failed to generate questions: ' + error.message);
 					}
-					vscode.window.showInformationMessage('Question sent to questions panel!');
-				} else {
-					vscode.window.showWarningMessage('No question returned by backend.');
 				}
-			} catch (error) {
-				vscode.window.showErrorMessage('Failed to generate questions: ' + error.message);
-			}
+			);
 		} else {
 			vscode.window.showInformationMessage("No active editor (no file is open).");
 		}
