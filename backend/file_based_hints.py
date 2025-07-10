@@ -249,7 +249,7 @@ Let's take it step by step."""
             try:
                 hint_data = json.loads(response.text)
                 print("Generated hint:", hint_data)
-                return hint_data
+                return {"hint": hint_data}
             except json.JSONDecodeError as e:
                 print(f"Failed to parse hint response: {response.text}")
                 return {"error": f"Failed to parse hint response: {str(e)}"}

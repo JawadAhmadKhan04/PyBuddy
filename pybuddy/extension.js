@@ -184,6 +184,8 @@ function activate(context) {
 				throw new Error(`Backend returned status ${response.status}`);
 			}
 			const data = await response.json();
+			console.log(data.hint)
+
 			if (data.hint) {
 				// Send hint to chat interface
 				if (chatProvider._webviewView) {
@@ -208,7 +210,7 @@ function activate(context) {
 					}
 				}
 				vscode.window.showInformationMessage('Hint sent to chat!');
-			} else {
+			}else {
 				vscode.window.showWarningMessage('No hint returned by backend.');
 			}
 		} catch (error) {
