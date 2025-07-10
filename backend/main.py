@@ -16,6 +16,9 @@ app.add_middleware(
 
 hinter = FileBasedHints()
 
+class QuestionRequest(BaseModel):
+    file_path:str
+
 class PreprocessingRequest(BaseModel):
     file_path: str
     folder_name: str
@@ -27,8 +30,8 @@ class GenerateHintsRequest(BaseModel):
 class AddApiKeyRequest(BaseModel):
     api_key: str
 
-class ChatRequest(BaseModel):
-    message: str
+# class ChatRequest(BaseModel):
+#     message: str
 
 @app.post("/preprocessing_file")
 async def get_root(request: PreprocessingRequest):
@@ -64,8 +67,17 @@ async def add_api_key(request: AddApiKeyRequest):
     hinter.add_api_key(api_key)
     return {"message": "API key added successfully"}
 
+@app.post("/get_question")
+async def get_question(request: QuestionRequest):
+    _, question_number, parent_of_question_folder = preprocess_file(request.file_path)
+    question_text, instructions = hinter.get_question_text(parent_of_question_folder, int(question_number))
+    return {"question_text": question_text, "instructions": instructions}
+
 @app.post("/generate_hints")
 async def generate_hints(request: GenerateHintsRequest):
+    folder_path, question_number, parent_of_question_folder = preprocess_file(request.file_path)
+    return hinter.get_general_hints(get_entire_code(folder_path), parent_of_question_folder, int(question_number))
+
     import os
     file_path = request.file_path
     folder_path = os.path.dirname(file_path)
@@ -92,6 +104,30 @@ async def generate_hints(request: GenerateHintsRequest):
     
     # print(f"File path: {file_path}, Folder name: {parent_of_question_folder}, Question number: {question_number}")
     # return {"folder_name": parent_of_question_folder, "question_number": question_number}
+    
+def preprocess_file(file_path: str):
+    import os
+    file_path = file_path
+    folder_path = os.path.dirname(file_path)
+    question_folder = os.path.basename(folder_path)
+    parent_of_question_folder = os.path.basename(os.path.dirname(folder_path))
+    # Extract question number from question_X
+    question_number = None
+    if question_folder.startswith('question_'):
+        try:
+            question_number = question_folder.split('_')[1]
+
+        except IndexError:
+            question_number = None
+    if question_number is None:
+        file_name = os.path.basename(file_path)
+        if file_name.startswith('question_') and file_name.endswith('.py'):
+            try:
+                # print("IIINNNN")
+                question_number = file_name.split('_')[1].split('.')[0]
+            except IndexError:
+                question_number = None
+    return folder_path, question_number, parent_of_question_folder
 
 def get_entire_code(folder_path: str) -> dict[str, str]:
     import os
@@ -104,15 +140,17 @@ def get_entire_code(folder_path: str) -> dict[str, str]:
     print("code_dict:", code_dict)
     return code_dict
 
-@app.post("/chat")
-async def chat(request: ChatRequest):
-    try:
-        # For now, return a simple response
-        # In the future, this could integrate with the hint system
-        response = f"I received your message: '{request.message}'. This is a placeholder response. The chat functionality is being developed."
-        return {"response": response}
-    except Exception as e:
-        print(f"Error in chat: {str(e)}")
-        return {"error": f"Chat failed: {str(e)}"}
+
+
+# @app.post("/chat")
+# async def chat(request: ChatRequest):
+#     try:
+#         # For now, return a simple response
+#         # In the future, this could integrate with the hint system
+#         response = f"I received your message: '{request.message}'. This is a placeholder response. The chat functionality is being developed."
+#         return {"response": response}
+#     except Exception as e:
+#         print(f"Error in chat: {str(e)}")
+#         return {"error": f"Chat failed: {str(e)}"}
 
 

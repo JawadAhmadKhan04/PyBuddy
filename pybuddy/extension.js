@@ -66,6 +66,7 @@ function activate(context) {
 
 	const loginProvider = new LoginProvider(context.extensionUri, handleLoginFlow);
 	const chatProvider = new ChatProvider(context.extensionUri);
+	const questionProvider = new QuestionProvider(context.extensionUri);
 	
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider('pybuddy-login', loginProvider)
@@ -73,6 +74,10 @@ function activate(context) {
 	
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider('pybuddy-chat', chatProvider)
+	);
+	
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider('pybuddy-questions', questionProvider)
 	);
 
 	// Register the login command for the title bar
@@ -225,6 +230,76 @@ function activate(context) {
 		
 	}
 
+	async function generateQuestionsForFile() {
+		const activeEditor = vscode.window.activeTextEditor;
+		if (activeEditor) {
+			const filePath = activeEditor.document.uri.fsPath;
+			try {
+				const endpoint = "http://127.0.0.1:8000/get_question";
+				const requestBody = { file_path: filePath };
+				const response = await fetch(endpoint, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(requestBody)
+				});
+				if (!response.ok) {
+					throw new Error(`Backend returned status ${response.status}`);
+				}
+				const data = await response.json();
+				console.log(data);
+
+				if (data.question_text || data.instructions) {
+					// Send question to question interface
+					if (questionProvider._webviewView) {
+						// Extract folder path from file path
+						const pathParts = filePath.split('\\');
+						const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
+						if (fileNameIndex > 0) {
+							const folderPath = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
+							let questionMessage = `📋 Question for ${folderPath}\n\n`;
+							
+							if (data.question_text) {
+								questionMessage += `**Question:**\n${data.question_text}\n\n`;
+							}
+							
+							if (data.instructions) {
+								questionMessage += `**Instructions:**\n${data.instructions}`;
+							}
+							
+							questionProvider._webviewView.webview.postMessage({ 
+								type: 'question', 
+								content: questionMessage 
+							});
+						} else {
+							// Fallback to just the filename if path structure is different
+							let questionMessage = `📋 Question for ${activeEditor.document.fileName.split('/').pop()}\n\n`;
+							
+							if (data.question_text) {
+								questionMessage += `**Question:**\n${data.question_text}\n\n`;
+							}
+							
+							if (data.instructions) {
+								questionMessage += `**Instructions:**\n${data.instructions}`;
+							}
+							
+							questionProvider._webviewView.webview.postMessage({ 
+								type: 'question', 
+								content: questionMessage 
+							});
+						}
+					}
+					vscode.window.showInformationMessage('Question sent to questions panel!');
+				} else {
+					vscode.window.showWarningMessage('No question returned by backend.');
+				}
+			} catch (error) {
+				vscode.window.showErrorMessage('Failed to generate questions: ' + error.message);
+			}
+		} else {
+			vscode.window.showInformationMessage("No active editor (no file is open).");
+		}
+	}
+
 
 	// Register the generateHints command
 	let generateHintsCmd = vscode.commands.registerCommand('pybuddy.generateHints', async function () {
@@ -238,10 +313,24 @@ function activate(context) {
 		}
 	});
 
+	// Register the showQuestions command
+	let showQuestionsCmd = vscode.commands.registerCommand('pybuddy.showQuestions', async function () {
+		await generateQuestionsForFile();
+	});
+
+	// Register the clearQuestions command
+	let clearQuestionsCmd = vscode.commands.registerCommand('pybuddy.clearQuestions', function () {
+		if (questionProvider._webviewView) {
+			questionProvider._webviewView.webview.postMessage({ type: 'clearQuestions' });
+		}
+	});
+
 	context.subscriptions.push(disposable);
 	context.subscriptions.push(showHints);
 	context.subscriptions.push(generateHintsCmd);
 	context.subscriptions.push(clearHintsCmd);
+	context.subscriptions.push(showQuestionsCmd);
+	context.subscriptions.push(clearQuestionsCmd);
 }
 
 class LoginProvider {
@@ -354,6 +443,58 @@ class ChatProvider {
 
 		html = html.replace('href="chat.css"', `href="${cssUri}"`);
 		html = html.replace('src="chat.js"', `src="${jsUri}"`);
+
+		return html;
+	}
+}
+
+class QuestionProvider {
+	constructor(extensionUri) {
+		this._extensionUri = extensionUri;
+		this._webviewView = null;
+		this._questions = [];
+	}
+
+	resolveWebviewView(webviewView) {
+		this._webviewView = webviewView;
+		webviewView.webview.options = {
+			enableScripts: true,
+			localResourceRoots: [vscode.Uri.joinPath(this._extensionUri, 'webview')]
+		};
+
+		webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+
+		webviewView.webview.onDidReceiveMessage(async data => {
+			switch (data.type) {
+				case 'saveQuestions':
+					this._questions = data.questions;
+					break;
+				case 'loadQuestions':
+					// Send saved questions back to webview
+					webviewView.webview.postMessage({
+						type: 'loadQuestions',
+						questions: this._questions
+					});
+					break;
+				case 'questionsCleared':
+					this._questions = [];
+					break;
+			}
+		});
+	}
+
+	_getHtmlForWebview(webview) {
+		const webviewFolder = vscode.Uri.joinPath(this._extensionUri, 'webview');
+		const htmlPath = vscode.Uri.joinPath(webviewFolder, 'question.html');
+		const cssPath = vscode.Uri.joinPath(webviewFolder, 'question.css');
+		const jsPath = vscode.Uri.joinPath(webviewFolder, 'question.js');
+
+		let html = fs.readFileSync(htmlPath.fsPath, 'utf8');
+		const cssUri = webview.asWebviewUri(cssPath);
+		const jsUri = webview.asWebviewUri(jsPath);
+
+		html = html.replace('href="question.css"', `href="${cssUri}"`);
+		html = html.replace('src="question.js"', `src="${jsUri}"`);
 
 		return html;
 	}
