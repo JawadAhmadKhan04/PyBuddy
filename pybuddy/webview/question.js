@@ -54,6 +54,9 @@ class QuestionInterface {
 
     formatQuestion(content, isQuestion = false) {
         // Convert plain text to HTML with proper formatting
+
+        console.log(content);
+        
         let formatted = content
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -89,6 +92,10 @@ class QuestionInterface {
             }
             return `<p>${line}</p>`;
         }).join('');
+
+        formatted = formatted.replace("**Question:**", '<h2>Question</h2>');
+        formatted = formatted.replace("**Instructions:**", '<h2>Instructions</h2>');
+        formatted = formatted.replace("**Links:**", '<h2>Links</h2>');
 
         return formatted;
     }
@@ -137,7 +144,7 @@ class QuestionInterface {
     }
 
     scrollToBottom() {
-        this.questionMessages.scrollTop = this.questionMessages.scrollHeight;
+        this.questionMessages.scrollTop = 0;
     }
 
     saveQuestions() {

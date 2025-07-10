@@ -33,6 +33,13 @@ class AddApiKeyRequest(BaseModel):
 # class ChatRequest(BaseModel):
 #     message: str
 
+import re
+
+def extract_links(text):
+    links = re.findall(r'https?://[^\s]+', text)
+    return "\n".join(links)
+
+
 @app.post("/preprocessing_file")
 async def get_root(request: PreprocessingRequest):
     try:
@@ -71,7 +78,7 @@ async def add_api_key(request: AddApiKeyRequest):
 async def get_question(request: QuestionRequest):
     _, question_number, parent_of_question_folder = preprocess_file(request.file_path)
     question_text, instructions = hinter.get_question_text(parent_of_question_folder, int(question_number))
-    return {"question_text": question_text, "instructions": instructions}
+    return {"question_text": question_text, "instructions": instructions, "links": extract_links(question_text)}
 
 @app.post("/generate_hints")
 async def generate_hints(request: GenerateHintsRequest):

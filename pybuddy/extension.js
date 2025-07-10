@@ -248,7 +248,7 @@ function activate(context) {
 				const data = await response.json();
 				console.log(data);
 
-				if (data.question_text || data.instructions) {
+				if (data.question_text || data.instructions || data.links) {
 					// Send question to question interface
 					if (questionProvider._webviewView) {
 						// Extract folder path from file path
@@ -256,7 +256,8 @@ function activate(context) {
 						const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
 						if (fileNameIndex > 0) {
 							const folderPath = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
-							let questionMessage = `📋 Question for ${folderPath}\n\n`;
+							
+							let questionMessage = `📋 Assignment: ${folderPath.replace("📋 Question for ", "").split("\\").slice(0, -1).join("\\")} - ${folderPath.split("\\").pop()}\n\n`;
 							
 							if (data.question_text) {
 								questionMessage += `**Question:**\n${data.question_text}\n\n`;
@@ -264,6 +265,10 @@ function activate(context) {
 							
 							if (data.instructions) {
 								questionMessage += `**Instructions:**\n${data.instructions}`;
+							}
+							
+							if (data.links) {
+								questionMessage += `**Links:**\n${data.links}`;
 							}
 							
 							questionProvider._webviewView.webview.postMessage({ 
@@ -331,6 +336,13 @@ function activate(context) {
 	context.subscriptions.push(clearHintsCmd);
 	context.subscriptions.push(showQuestionsCmd);
 	context.subscriptions.push(clearQuestionsCmd);
+
+	// Auto-update Questions sidebar on file change
+	vscode.window.onDidChangeActiveTextEditor(async (editor) => {
+		if (editor && editor.document && editor.document.languageId === 'python') {
+			await generateQuestionsForFile();
+		}
+	});
 }
 
 class LoginProvider {
