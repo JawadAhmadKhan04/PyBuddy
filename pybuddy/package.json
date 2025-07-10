@@ -38,6 +38,16 @@
       "command": "pybuddy.clearHints",
       "title": "Clear Hints",
       "icon": "$(trash)"
+    },
+    {
+      "command": "pybuddy.showQuestions",
+      "title": "Questions",
+      "icon": "$(book)"
+    },
+    {
+      "command": "pybuddy.clearQuestions",
+      "title": "Clear Questions",
+      "icon": "$(trash)"
     }],
     "viewsContainers": {
       "activitybar": [
@@ -59,16 +69,25 @@
           "id": "pybuddy-chat",
           "name": "Hints",
           "type": "webview"
+        },
+        {
+          "id": "pybuddy-questions",
+          "name": "Questions",
+          "type": "webview"
         }
       ]
     },
-    "menus": {
-      "editor/title": [
-        {
-          "command": "pybuddy.showHints",
-          "group": "navigation@1"
-        }
-      ],
+          "menus": {
+        "editor/title": [
+          {
+            "command": "pybuddy.showHints",
+            "group": "navigation@1"
+          },
+          {
+            "command": "pybuddy.showQuestions",
+            "group": "navigation@2"
+          }
+        ],
       "view/title": [
         {
           "command": "pybuddy.login",
@@ -88,6 +107,11 @@
         {
           "command": "pybuddy.clearHints",
           "when": "view == pybuddy-chat",
+          "group": "navigation"
+        },
+        {
+          "command": "pybuddy.clearQuestions",
+          "when": "view == pybuddy-questions",
           "group": "navigation"
         }
       ]
