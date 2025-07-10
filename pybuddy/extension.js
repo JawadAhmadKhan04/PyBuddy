@@ -175,59 +175,65 @@ function activate(context) {
 	async function generateHintsForFile() {
 		const activeEditor = vscode.window.activeTextEditor;
 		if (activeEditor) {
-			fileLocationForHints = activeEditor.document.uri.fsPath;
-			// vscode.window.showInformationMessage("Currently active file:", fileLocationForHints);
-			try {
-			const endpoint = "http://127.0.0.1:8000/generate_hints";
-			const requestBody = { file_path: fileLocationForHints };
-			const response = await fetch(endpoint, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(requestBody)
-			});
-			if (!response.ok) {
-				throw new Error(`Backend returned status ${response.status}`);
-			}
-			const data = await response.json();
-			console.log(data.hint)
+			const filePath = activeEditor.document.uri.fsPath;
+			const folderPath = path.dirname(filePath);
 
-			if (data.hint) {
-				// Send hint to chat interface
-				if (chatProvider._webviewView) {
-					// Extract folder path from file path
-					const filePath = activeEditor.document.uri.fsPath;
-					const pathParts = filePath.split('\\');
-					const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
-					if (fileNameIndex > 0) {
-						const folderPath = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
-						const hintMessage = `💡 Hint for ${folderPath}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
-						chatProvider._webviewView.webview.postMessage({ 
-							type: 'hint', 
-							content: hintMessage 
-						});
-					} else {
-						// Fallback to just the filename if path structure is different
-						const hintMessage = `💡 Hint for ${activeEditor.document.fileName.split('/').pop()}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
-						chatProvider._webviewView.webview.postMessage({ 
-							type: 'hint', 
-							content: hintMessage 
-						});
-					}
+			// Read all files in the folder and build codeDict
+			let codeDict = {};
+			const files = fs.readdirSync(folderPath);
+			for (const file of files) {
+				const fullPath = path.join(folderPath, file);
+				if (fs.statSync(fullPath).isFile()) {
+					codeDict[file] = fs.readFileSync(fullPath, 'utf-8');
 				}
-				vscode.window.showInformationMessage('Hint sent to chat!');
-			}else {
-				vscode.window.showWarningMessage('No hint returned by backend.');
 			}
-		} catch (error) {
-			vscode.window.showErrorMessage('Failed to generate hints: ' + error.message);
-		}
-			// Example: send it to webview
-			// webviewView.webview.postMessage({ type: 'activeFile', path: activeFilePath });
+
+			try {
+				const endpoint = "http://127.0.0.1:8000/generate_hints";
+				const requestBody = { file_path: filePath, code_dict: codeDict };
+				const response = await fetch(endpoint, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(requestBody)
+				});
+				if (!response.ok) {
+					throw new Error(`Backend returned status ${response.status}`);
+				}
+				const data = await response.json();
+				console.log(data.hint)
+
+				if (data.hint) {
+					// Send hint to chat interface
+					if (chatProvider._webviewView) {
+						// Extract folder path from file path
+						const pathParts = filePath.split('\\');
+						const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
+						if (fileNameIndex > 0) {
+							const folderPathDisplay = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
+							const hintMessage = `💡 Hint for ${folderPathDisplay}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
+							chatProvider._webviewView.webview.postMessage({ 
+								type: 'hint', 
+								content: hintMessage 
+							});
+						} else {
+							// Fallback to just the filename if path structure is different
+							const hintMessage = `💡 Hint for ${activeEditor.document.fileName.split('/').pop()}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
+							chatProvider._webviewView.webview.postMessage({ 
+								type: 'hint', 
+								content: hintMessage 
+							});
+						}
+					}
+					vscode.window.showInformationMessage('Hint sent to chat!');
+				} else {
+					vscode.window.showWarningMessage('No hint returned by backend.');
+				}
+			} catch (error) {
+				vscode.window.showErrorMessage('Failed to generate hints: ' + error.message);
+			}
 		} else {
 			vscode.window.showInformationMessage("No active editor (no file is open).");
 		}
-		
-		
 	}
 
 	async function generateQuestionsForFile() {

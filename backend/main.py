@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from file_based_hints import FileBasedHints
+from typing import Dict
 
 app = FastAPI()
 
@@ -26,6 +27,7 @@ class PreprocessingRequest(BaseModel):
 
 class GenerateHintsRequest(BaseModel):
     file_path: str
+    code_dict: Dict[str, str]
 
 class AddApiKeyRequest(BaseModel):
     api_key: str
@@ -83,7 +85,12 @@ async def get_question(request: QuestionRequest):
 @app.post("/generate_hints")
 async def generate_hints(request: GenerateHintsRequest):
     folder_path, question_number, parent_of_question_folder = preprocess_file(request.file_path)
-    return hinter.get_general_hints(get_entire_code(folder_path), parent_of_question_folder, int(question_number))
+    # return hinter.get_general_hints(request.file_code, parent_of_question_folder, int(question_number))
+
+    code_dict = request.code_dict
+    # You may need to extract parent_of_question_folder and question_number from the code_dict or request if needed
+    # For now, just pass code_dict to hinter.get_general_hints
+    return hinter.get_general_hints(code_dict, parent_of_question_folder, int(question_number))
 
     import os
     file_path = request.file_path
