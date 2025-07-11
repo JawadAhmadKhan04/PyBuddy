@@ -209,7 +209,17 @@ function activate(context) {
 						const data = await response.json();
 						console.log(data.hint)
 
-						if (data.hint) {
+						if (data.error) {
+							// Handle error response
+							// if (chatProvider._webviewView) {
+							// 	chatProvider._webviewView.webview.postMessage({ 
+							// 		type: 'error', 
+							// 		content: data.error 
+							// 	});
+							// }
+							
+							vscode.window.showErrorMessage("Error: API Key is Invalid. Either enter a valid API key or check if the API key is not expired.");
+						} else if (data.hint) {
 							// Send hint to chat interface
 							if (chatProvider._webviewView) {
 								// Extract folder path from file path

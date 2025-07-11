@@ -90,7 +90,13 @@ async def generate_hints(request: GenerateHintsRequest):
     code_dict = request.code_dict
     # You may need to extract parent_of_question_folder and question_number from the code_dict or request if needed
     # For now, just pass code_dict to hinter.get_general_hints
-    return hinter.get_general_hints(code_dict, parent_of_question_folder, int(question_number))
+    result = hinter.get_general_hints(code_dict, parent_of_question_folder, int(question_number))
+    
+    # Check if the result contains an error
+    if result.get("error"):
+        return {"error": result["error"]}
+    
+    return result
 
     import os
     file_path = request.file_path
