@@ -256,4 +256,8 @@ Let's take it step by step."""
                 
         except Exception as e:
             print(f"Error generating hint: {str(e)}")
+            # Check if the error is related to API key
+            error_str = str(e).lower()
+            if "api" in error_str and ("key" in error_str or "invalid" in error_str or "unauthorized" in error_str or "authentication" in error_str):
+                return {"error": "API Key is Invalid. Either enter a valid API key or check if the API key is not expired."}
             return {"error": f"Error generating hint: {str(e)}"}
