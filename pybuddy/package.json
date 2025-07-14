@@ -27,7 +27,7 @@
     {
       "command": "pybuddy.addApiKey",
       "title": "Add API Key",
-      "icon": "$(add)"
+      "icon": "$(key)"
     },
     {
       "command": "pybuddy.showHints",

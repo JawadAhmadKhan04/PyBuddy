@@ -4,6 +4,8 @@ const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
 
+const backend_url = "http://127.0.0.1:8000";
+
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 
@@ -31,7 +33,7 @@ function activate(context) {
 					const folder_name = fileName.substring(0, fileName.lastIndexOf('.'));
 					console.log(folder_name); // Output: QuestCamp GCR assignment examples
 					const file_creation_method = "Create files on auto"
-					const endpoint = "http://127.0.0.1:8000/preprocessing_file"
+					const endpoint = `${backend_url}/preprocessing_file`
 					const requestBody = {
 						file_path: file_path,
 						folder_name: folder_name,
@@ -117,7 +119,7 @@ function activate(context) {
 
 				// Send the API key to the backend
 				try {
-					const response = await fetch('http://127.0.0.1:8000/add_api_key', {
+					const response = await fetch(`${backend_url}/add_api_key`, {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
 						body: JSON.stringify({ api_key: apiKey })
@@ -172,9 +174,13 @@ function activate(context) {
 	// Placeholder for the file location to generate hints for
 	// const fileLocationForHints = "testing_pdfs/QuestCamp GCR assignment examples.pdf";
 
+	let fileHints = {}; // { [filePath]: [hintMessage, ...] }
+	let currentFilePath = null;
+
 	async function generateHintsForFile() {
 		const activeEditor = vscode.window.activeTextEditor;
 		if (activeEditor) {
+			currentFilePath = activeEditor.document.uri.fsPath;
 			await vscode.window.withProgress(
 				{
 					location: vscode.ProgressLocation.Notification,
@@ -196,7 +202,7 @@ function activate(context) {
 					}
 
 					try {
-						const endpoint = "http://127.0.0.1:8000/generate_hints";
+						const endpoint = `${backend_url}/generate_hints`;
 						const requestBody = { file_path: filePath, code_dict: codeDict };
 						const response = await fetch(endpoint, {
 							method: 'POST',
@@ -210,37 +216,28 @@ function activate(context) {
 						console.log(data.hint)
 
 						if (data.error) {
-							// Handle error response
 							// if (chatProvider._webviewView) {
-							// 	chatProvider._webviewView.webview.postMessage({ 
-							// 		type: 'error', 
-							// 		content: data.error 
-							// 	});
+							//     chatProvider._webviewView.webview.postMessage({ 
+							//         type: 'error', 
+							//         content: data.error 
+							//     });
 							// }
-							
 							vscode.window.showErrorMessage("Error: API Key is Invalid. Either enter a valid API key or check if the API key is not expired.");
 						} else if (data.hint) {
 							// Send hint to chat interface
-							if (chatProvider._webviewView) {
-								// Extract folder path from file path
-								const pathParts = filePath.split('\\');
-								const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
-								if (fileNameIndex > 0) {
-									const folderPathDisplay = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
-									const hintMessage = `💡 Hint for ${folderPathDisplay}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
-									chatProvider._webviewView.webview.postMessage({ 
-										type: 'hint', 
-										content: hintMessage 
-									});
-								} else {
-									// Fallback to just the filename if path structure is different
-									const hintMessage = `💡 Hint for ${activeEditor.document.fileName.split('/').pop()}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
-									chatProvider._webviewView.webview.postMessage({ 
-										type: 'hint', 
-										content: hintMessage 
-									});
-								}
+							let hintMessage;
+							const pathParts = filePath.split('\\');
+							const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
+							if (fileNameIndex > 0) {
+								const folderPathDisplay = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
+								hintMessage = `💡 Hint for ${folderPathDisplay}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
+							} else {
+								// Fallback to just the filename if path structure is different
+								hintMessage = `💡 Hint for ${activeEditor.document.fileName.split('/').pop()}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
 							}
+							if (!fileHints[currentFilePath]) fileHints[currentFilePath] = [];
+							fileHints[currentFilePath].push(hintMessage);
+							updateChatWithCurrentFileHints();
 							vscode.window.showInformationMessage('Hint sent to chat!');
 						} else {
 							vscode.window.showWarningMessage('No hint returned by backend.');
@@ -252,6 +249,22 @@ function activate(context) {
 			);
 		} else {
 			vscode.window.showInformationMessage("No active editor (no file is open).");
+		}
+	}
+
+	// Add this function to update the chat panel with only the current file's hints
+	function updateChatWithCurrentFileHints() {
+		if (chatProvider._webviewView) {
+			chatProvider._webviewView.webview.postMessage({
+				type: 'clearChat'
+			});
+			const hints = fileHints[currentFilePath] || [];
+			hints.forEach(hintMessage => {
+				chatProvider._webviewView.webview.postMessage({
+					type: 'hint',
+					content: hintMessage
+				});
+			});
 		}
 	}
 
@@ -267,7 +280,7 @@ function activate(context) {
 				async (progress) => {
 					const filePath = activeEditor.document.uri.fsPath;
 					try {
-						const endpoint = "http://127.0.0.1:8000/get_question";
+						const endpoint = `${backend_url}/get_question`;
 						const requestBody = { file_path: filePath };
 						const response = await fetch(endpoint, {
 							method: 'POST',
@@ -374,6 +387,8 @@ function activate(context) {
 	// Auto-update Questions sidebar on file change
 	vscode.window.onDidChangeActiveTextEditor(async (editor) => {
 		if (editor && editor.document && editor.document.languageId === 'python') {
+			currentFilePath = editor.document.uri.fsPath;
+			updateChatWithCurrentFileHints();
 			await generateQuestionsForFile();
 		}
 	});
