@@ -2,6 +2,7 @@
 const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
+const { openFolderInExplorer } = require('./fileHelpers');
 
 const backend_url = "http://127.0.0.1:8000";
 

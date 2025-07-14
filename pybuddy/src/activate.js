@@ -12,7 +12,7 @@ const { openFolderInExplorer } = require('./fileHelpers');
 function activate(context) {
 	console.log('PyBuddy extension is now active!');
 
-	const loginProvider = new LoginProvider(context.extensionUri, handleLoginFlow);
+	const loginProvider = new LoginProvider(context.extensionUri);
 	const chatProvider = new ChatProvider(context.extensionUri);
 	const questionProvider = new QuestionProvider(context.extensionUri);
 
@@ -27,11 +27,11 @@ function activate(context) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pybuddy.login', async () => {
+			vscode.window.showInformationMessage('Login pressed');
 			vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', true);
 			if (loginProvider._webviewView) {
 				loginProvider._webviewView.webview.postMessage({ type: 'hideLogin' });
 			}
-			await handleLoginFlow();
 		}),
 		vscode.commands.registerCommand('pybuddy.logout', () => {
 			vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', false);
@@ -48,6 +48,9 @@ function activate(context) {
 			}
 		}),
 		vscode.commands.registerCommand('pybuddy.showQuestions', handleGenerateQuestions(questionProvider)),
+		vscode.commands.registerCommand('pybuddy.preprocessFiles', async () => {
+			await handleLoginFlow();
+		}),
 		vscode.commands.registerCommand('pybuddy.clearQuestions', () => {
 			if (questionProvider._webviewView) {
 				questionProvider._webviewView.webview.postMessage({ type: 'clearQuestions' });

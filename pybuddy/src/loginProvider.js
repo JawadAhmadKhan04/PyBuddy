@@ -2,9 +2,8 @@ const vscode = require('vscode');
 const fs = require('fs');
 
 class LoginProvider {
-	constructor(extensionUri, handleLoginFlow) {
+	constructor(extensionUri) {
 		this._extensionUri = extensionUri;
-		this._handleLoginFlow = handleLoginFlow;
 		this._webviewView = null;
 	}
 
@@ -22,18 +21,10 @@ class LoginProvider {
 		webviewView.webview.onDidReceiveMessage(async data => {
 			switch (data.type) {
 				case 'login':
-					// vscode.window.showInformationMessage('Login Pressed');
+					vscode.window.showInformationMessage('Login pressed');
 					vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', true);
 					// Hide the login button in the webview
 					webviewView.webview.postMessage({ type: 'hideLogin' });
-					// Trigger the login flow
-					if (isLoading) {
-						vscode.window.showWarningMessage('Please wait for the current operation to finish.');
-						return;
-					}
-					isLoading = true;
-					await this._handleLoginFlow();
-					isLoading = false;
 					break;
 				case 'logout':
 					vscode.window.showInformationMessage('Logout Pressed');
