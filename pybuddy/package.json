@@ -27,7 +27,7 @@
     {
       "command": "pybuddy.addApiKey",
       "title": "Add API Key",
-      "icon": "$(add)"
+      "icon": "$(key)"
     },
     {
       "command": "pybuddy.showHints",
@@ -48,6 +48,21 @@
       "command": "pybuddy.clearQuestions",
       "title": "Clear Questions",
       "icon": "$(trash)"
+    },
+    {
+      "command": "pybuddy.generateHints",
+      "title": "Generate Hints",
+      "icon": "$(light-bulb)"
+    },
+    {
+      "command": "pybuddy.showQuestions",
+      "title": "Show Questions",
+      "icon": "$(book)"
+    },
+    {
+      "command": "pybuddy.preprocessFiles",
+      "title": "Preprocess Files",
+      "icon": "$(book)"
     }],
     "viewsContainers": {
       "activitybar": [
@@ -80,11 +95,11 @@
           "menus": {
         "editor/title": [
           {
-            "command": "pybuddy.showHints",
+            "command": "pybuddy.generateHints",
             "group": "navigation@1"
           },
           {
-            "command": "pybuddy.showQuestions",
+            "command": "pybuddy.preprocessFiles",
             "group": "navigation@2"
           }
         ],
