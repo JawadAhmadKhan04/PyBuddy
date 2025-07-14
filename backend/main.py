@@ -1,8 +1,10 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import re
 from file_based_hints import FileBasedHints
 from typing import Dict
+from google_classroom import GoogleClassroomClient
 
 app = FastAPI()
 
@@ -16,6 +18,7 @@ app.add_middleware(
 )
 
 hinter = FileBasedHints()
+gcr = GoogleClassroomClient()
 
 class QuestionRequest(BaseModel):
     file_path:str
@@ -35,7 +38,7 @@ class AddApiKeyRequest(BaseModel):
 # class ChatRequest(BaseModel):
 #     message: str
 
-import re
+
 
 def extract_links(text):
     links = re.findall(r'https?://[^\s]+', text)
@@ -174,3 +177,21 @@ def get_entire_code(folder_path: str) -> dict[str, str]:
 #         return {"error": f"Chat failed: {str(e)}"}
 
 
+@app.post("/login")
+async def login():
+    gcr.login()
+    return {"message": "Logged in successfully"}
+
+@app.post("/get_courses")
+async def get_courses():
+    courses = gcr.get_courses()
+    if courses.get("error"):
+        return {"error": courses["error"]}
+    return {"courses": courses["courses"]}
+
+@app.post("/logout")
+async def logout():
+    gcr.logout()
+    return {"message": "Logged out successfully"}
+
+    
