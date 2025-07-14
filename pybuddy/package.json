@@ -58,6 +58,11 @@
       "command": "pybuddy.showQuestions",
       "title": "Show Questions",
       "icon": "$(book)"
+    },
+    {
+      "command": "pybuddy.preprocessFiles",
+      "title": "Preprocess Files",
+      "icon": "$(book)"
     }],
     "viewsContainers": {
       "activitybar": [
@@ -94,7 +99,7 @@
             "group": "navigation@1"
           },
           {
-            "command": "pybuddy.showQuestions",
+            "command": "pybuddy.preprocessFiles",
             "group": "navigation@2"
           }
         ],
