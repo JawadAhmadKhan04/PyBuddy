@@ -48,6 +48,16 @@
       "command": "pybuddy.clearQuestions",
       "title": "Clear Questions",
       "icon": "$(trash)"
+    },
+    {
+      "command": "pybuddy.generateHints",
+      "title": "Generate Hints",
+      "icon": "$(light-bulb)"
+    },
+    {
+      "command": "pybuddy.showQuestions",
+      "title": "Show Questions",
+      "icon": "$(book)"
     }],
     "viewsContainers": {
       "activitybar": [
@@ -80,7 +90,7 @@
           "menus": {
         "editor/title": [
           {
-            "command": "pybuddy.showHints",
+            "command": "pybuddy.generateHints",
             "group": "navigation@1"
           },
           {

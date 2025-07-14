@@ -78,16 +78,16 @@ class GoogleClassroomClient:
             print("No token file to delete.")
 
 
-gcr = GoogleClassroomClient()
-while True:
-    choice = int(input("1. Login\n2. Get Courses\n3. Logout\n4. Exit\n"))
-    if choice == 1:
-        gcr.login()
-    elif choice == 2:
-        gcr.get_courses()
-    elif choice == 3:
-        gcr.logout()
-    elif choice == 4:
-        break
-    else:
-        print("Invalid choice.")
+# gcr = GoogleClassroomClient()
+# while True:
+#     choice = int(input("1. Login\n2. Get Courses\n3. Logout\n4. Exit\n"))
+#     if choice == 1:
+#         gcr.login()
+#     elif choice == 2:
+#         gcr.get_courses()
+#     elif choice == 3:
+#         gcr.logout()
+#     elif choice == 4:
+#         break
+#     else:
+#         print("Invalid choice.")
