@@ -1,0 +1,135 @@
+body, html {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: var(--vscode-font-family, 'Segoe UI', Arial, sans-serif);
+    color: var(--vscode-foreground, #222);
+    background-color: var(--vscode-editor-background, #f5f5f5);
+}
+
+#classroom-app {
+    max-width: 600px;
+    margin: 40px auto;
+    background: var(--vscode-editorWidget-background, #fff);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    padding: 32px;
+}
+
+h2 {
+    margin-top: 0;
+}
+
+button {
+    background: var(--vscode-button-background, #4285f4);
+    color: var(--vscode-button-foreground, #fff);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 8px 0;
+    transition: background 0.2s;
+    font-family: var(--vscode-font-family, 'Segoe UI', Arial, sans-serif);
+}
+button:hover {
+    background: var(--vscode-button-hoverBackground, #3367d6);
+}
+ul {
+    list-style: none;
+    padding: 0;
+}
+li {
+    background: var(--vscode-input-background, #f1f3f4);
+    margin: 8px 0;
+    padding: 14px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+li:hover {
+    background: var(--vscode-inputOption-activeBackground, #e3e6ea);
+}
+#course-tabs {
+    margin: 20px 0 10px 0;
+}
+.tab-btn {
+    margin-right: 10px;
+    background: var(--vscode-inputOption-activeBackground, #e3e6ea);
+    color: var(--vscode-input-foreground, #333);
+    border: none;
+    border-radius: 6px 6px 0 0;
+    padding: 8px 16px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.tab-btn.active, .tab-btn:hover {
+    background: var(--vscode-button-background, #4285f4);
+    color: var(--vscode-button-foreground, #fff);
+}
+#tab-content {
+    background: var(--vscode-input-background, #f1f3f4);
+    border-radius: 0 0 6px 6px;
+    padding: 18px;
+    min-height: 80px;
+}
+#back-to-courses {
+    background: var(--vscode-inputOption-activeBackground, #e3e6ea);
+    color: var(--vscode-input-foreground, #333);
+    margin-bottom: 16px;
+}
+#back-to-courses:hover {
+    background: var(--vscode-inputOption-hoverBackground, #d1d5db);
+} 
+
+/* Tree styles */
+#gcr-tree {
+    margin-top: 16px;
+    font-size: 1rem;
+}
+.gcr-tree-node {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 4px 0 4px 8px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+.gcr-tree-node:hover {
+    background: var(--vscode-list-hoverBackground, #e3e6ea);
+}
+.gcr-tree-label {
+    flex: 1;
+    user-select: none;
+}
+.gcr-tree-children {
+    margin-left: 18px;
+    border-left: 1px solid var(--vscode-editorWidget-border, #e0e0e0);
+    padding-left: 6px;
+}
+.gcr-tree-toggle {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 4px;
+    font-size: 12px;
+    color: var(--vscode-icon-foreground, #888);
+    cursor: pointer;
+    user-select: none;
+}
+.gcr-tree-toggle:after {
+    content: '\25B6'; /* right-pointing triangle */
+    display: inline-block;
+    transform: rotate(0deg);
+    transition: transform 0.15s;
+}
+.gcr-tree-node.expanded > .gcr-tree-toggle:after {
+    transform: rotate(90deg);
+}
+.gcr-tree-node.selected {
+    background: var(--vscode-list-activeSelectionBackground, #cce2ff);
+    color: var(--vscode-list-activeSelectionForeground, #222);
+} 

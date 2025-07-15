@@ -2,42 +2,87 @@ const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
 
-const LoginProvider = require('./loginProvider');
 const ChatProvider = require('./chatProvider');
 const QuestionProvider = require('./questionProvider');
+const ClassroomTreeProvider = require('./classroomTreeProvider');
 
-const { handleLoginFlow, handleGenerateHints, handleShowHints, handleGenerateQuestions, handleAddApiKey } = require('./backendHelpers');
+const { handleLoginFlow, handleGenerateHints, handleShowHints, handleGenerateQuestions, handleAddApiKey, backendLogin, backendLogout } = require('./backendHelpers');
 const { openFolderInExplorer } = require('./fileHelpers');
 
 function activate(context) {
 	console.log('PyBuddy extension is now active!');
 
-	const loginProvider = new LoginProvider(context.extensionUri);
 	const chatProvider = new ChatProvider(context.extensionUri);
 	const questionProvider = new QuestionProvider(context.extensionUri);
+    const classroomTreeProvider = new ClassroomTreeProvider();
+    vscode.window.registerTreeDataProvider('pybuddy-classroom-tree', classroomTreeProvider);
 
 	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider('pybuddy-login', loginProvider),
 		vscode.window.registerWebviewViewProvider('pybuddy-chat', chatProvider),
 		vscode.window.registerWebviewViewProvider('pybuddy-questions', questionProvider)
 	);
+
+	// Check login state on activation
+	const wasLoggedIn = context.globalState.get('pybuddyLoggedIn', false);
+	vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', wasLoggedIn);
+    classroomTreeProvider.setLoggedIn(wasLoggedIn);
+    if (wasLoggedIn) {
+        classroomTreeProvider.setData([
+            {
+                label: 'Mathematics 101',
+                children: [
+                    { label: 'Assignments', children: [{ label: 'Assignment 1' }, { label: 'Assignment 2' }] },
+                    { label: 'Resources', children: [{ label: 'Syllabus.pdf' }] },
+                    { label: 'People', children: [{ label: 'Alice (Teacher)' }, { label: 'Bob (Student)' }] }
+                ]
+            },
+            {
+                label: 'Physics 202',
+                children: [
+                    { label: 'Assignments', children: [{ label: 'Assignment 1' }] },
+                    { label: 'Resources', children: [{ label: 'Lab Manual.pdf' }] },
+                    { label: 'People', children: [{ label: 'Dr. Brown (Teacher)' }] }
+                ]
+            }
+        ]);
+    } else {
+        classroomTreeProvider.setData([]);
+    }
 
 	// Get the addApiKey command function
 	const addApiKeyCommand = handleAddApiKey(context);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('pybuddy.login', async () => {
-			vscode.window.showInformationMessage('Login pressed');
+			await backendLogin();
+			context.globalState.update('pybuddyLoggedIn', true);
 			vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', true);
-			if (loginProvider._webviewView) {
-				loginProvider._webviewView.webview.postMessage({ type: 'hideLogin' });
-			}
+            classroomTreeProvider.setLoggedIn(true);
+            classroomTreeProvider.setData([
+                {
+                    label: 'Mathematics 101',
+                    children: [
+                        { label: 'Assignments', children: [{ label: 'Assignment 1' }, { label: 'Assignment 2' }] },
+                        { label: 'Resources', children: [{ label: 'Syllabus.pdf' }] },
+                        { label: 'People', children: [{ label: 'Alice (Teacher)' }, { label: 'Bob (Student)' }] }
+                    ]
+                },
+                {
+                    label: 'Physics 202',
+                    children: [
+                        { label: 'Assignments', children: [{ label: 'Assignment 1' }] },
+                        { label: 'Resources', children: [{ label: 'Lab Manual.pdf' }] },
+                        { label: 'People', children: [{ label: 'Dr. Brown (Teacher)' }] }
+                    ]
+                }
+            ]);
 		}),
-		vscode.commands.registerCommand('pybuddy.logout', () => {
+		vscode.commands.registerCommand('pybuddy.logout', async () => {
+			await backendLogout();
+			context.globalState.update('pybuddyLoggedIn', false);
 			vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', false);
-			if (loginProvider._webviewView) {
-				loginProvider._webviewView.webview.postMessage({ type: 'showLogin' });
-			}
+            classroomTreeProvider.setLoggedIn(false);
+            classroomTreeProvider.setData([]);
 		}),
         vscode.commands.registerCommand('pybuddy.addApiKey', addApiKeyCommand),
 		vscode.commands.registerCommand('pybuddy.showHints', handleShowHints(chatProvider)),

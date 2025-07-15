@@ -76,11 +76,6 @@
     "views": {
       "pybuddy-sidebar": [
         {
-          "id": "pybuddy-login",
-          "name": "Login",
-          "type": "webview"
-        },
-        {
           "id": "pybuddy-chat",
           "name": "Hints",
           "type": "webview"
@@ -89,6 +84,10 @@
           "id": "pybuddy-questions",
           "name": "Questions",
           "type": "webview"
+        },
+        {
+          "id": "pybuddy-classroom-tree",
+          "name": "Google Classroom"
         }
       ]
     },
@@ -106,17 +105,17 @@
       "view/title": [
         {
           "command": "pybuddy.login",
-          "when": "!pybuddyLoggedIn && view == pybuddy-login",
+          "when": "!pybuddyLoggedIn && view == pybuddy-classroom-tree",
           "group": "navigation"
         },
         {
           "command": "pybuddy.addApiKey",
-          "when": "view == pybuddy-login",
+          "when": "view == pybuddy-classroom-tree",
           "group": "navigation"
         },
         {
           "command": "pybuddy.logout",
-          "when": "pybuddyLoggedIn && view == pybuddy-login",
+          "when": "pybuddyLoggedIn && view == pybuddy-classroom-tree",
           "group": "navigation"
         },
         {
