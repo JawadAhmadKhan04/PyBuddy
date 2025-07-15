@@ -330,6 +330,24 @@ function handleGenerateQuestions(questionProvider) {
 	};
 }
 
+/**
+ * Fetches Google Classroom data from the backend.
+ * @returns {Promise<Array>} The gcr_data array from the backend, or [] on error.
+ */
+async function fetchGCRData() {
+    try {
+        const response = await fetch(`${backend_url}/get_gcr_data`, { method: 'POST' });
+        if (!response.ok) {
+            throw new Error(`Backend returned status ${response.status}`);
+        }
+        const data = await response.json();
+        return data.gcr_data || [];
+    } catch (error) {
+        vscode.window.showErrorMessage('Failed to fetch Google Classroom data: ' + error.message);
+        return [];
+    }
+}
+
 module.exports = {
 	handleLoginFlow,
 	handleGenerateHints,
@@ -337,5 +355,6 @@ module.exports = {
 	handleGenerateQuestions,
 	handleAddApiKey,
     backendLogin,
-    backendLogout
+    backendLogout,
+    fetchGCRData
 };

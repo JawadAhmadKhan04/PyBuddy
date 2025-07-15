@@ -13,15 +13,18 @@ class GoogleClassroomClient:
         
         
         self.SCOPES = [
-    "https://www.googleapis.com/auth/classroom.courses",                  # Read course metadata
+    "https://www.googleapis.com/auth/classroom.courses.readonly",                  # Read course metadata
     "https://www.googleapis.com/auth/classroom.rosters",
     "https://www.googleapis.com/auth/classroom.coursework.me"
 ]
 
 
 
+
+
         # Load token if it exists
         if os.path.exists(self.token_path):
+            self.creds = Credentials.from_authorized_user_file(self.token_path, self.SCOPES)
             self.creds = Credentials.from_authorized_user_file(self.token_path, self.SCOPES)
             print("✅ Token loaded.")
         else:
@@ -33,28 +36,91 @@ class GoogleClassroomClient:
             print(f"❌ Error building service: {e}")
             self.service = None
             
-    def get_assignments(self, course_id):
+    def get_gcr_data(self):
+        course_result = self.get_courses()
+
+        if "error" in course_result:
+            return course_result
+
+        final_data = []
+
+        for course in course_result["courses"]:
+            course_id = course["id"]
+            course_name = course["name"]
+
+            try:
+                assignments = self.get_assignments(course_id)
+            except Exception as e:
+                print(f"⚠️ Skipping course {course_name} ({course_id}) due to permission error: {e}")
+                continue  # Skip this course
+            
+            if not assignments:
+                continue
+
+            final_data.append({
+                "courseId": course_id,
+                "courseName": course_name,
+                "assignments": assignments
+            })
+
+        return final_data
+
+            
+    def get_courses(self, limit=10):
         if not self.service:
             print("❌ Not logged in.")
             return {"error": "Not logged in"}
 
+        results = self.service.courses().list(pageSize=limit).execute()
+        courses = results.get('courses', [])
+
+        if not courses:
+            print("📭 No courses found.")
+            return {"error": "No courses found"}
+
+        return {"courses": courses}
+
+    def get_assignments(self, course_id):
+        if not self.service:
+            print("❌ Not logged in.")
+            return []
+
         try:
-            results = self.service.courses().courseWork().list(courseId=course_id).execute()
-            assignments = results.get('courseWork', [])
+            # Fetch all coursework for the course
+            response = self.service.courses().courseWork().list(courseId=course_id).execute()
+            coursework = response.get("courseWork", [])
 
-            if not assignments:
-                print(f"📭 No assignments found for course ID: {course_id}")
-            else:
-                print(f"📚 Assignments in course {course_id}:")
-                print(assignments)
-                for a in assignments:
-                    print(f"- {a['title']} (ID: {a['id']})")
+            result = []
 
-            return assignments
+            for work in coursework:
+                course_work_id = work["id"]
+
+                # Fetch the student's submission for this assignment
+                submission_response = self.service.courses().courseWork().studentSubmissions().list(
+                    courseId=course_id,
+                    courseWorkId=course_work_id,
+                    userId="me"
+                ).execute()
+
+                submissions = submission_response.get("studentSubmissions", [])
+                submission_state = submissions[0]["state"] if submissions else "UNKNOWN"
+
+                result.append({
+                    "assignmentId": work.get("id", ""),
+                    "title": work.get("title", ""),
+                    "description": work.get("description", "No description given of {title}"),
+                    "dueDate": work.get("dueDate", {}),
+                    "dueTime": work.get("dueTime", {}),
+                    "submissionState": submission_state
+                })
+
+            return result
+
         except Exception as e:
-            print(f"❌ Failed to fetch assignments: {e}")
-            return {"error": str(e)}
+            print(f"❌ Failed to fetch assignments for course {course_id}: {e}")
+            return None
 
+            
             
     def extract_course_id(self, classroom_url):
         match = re.search(r'/c/([a-zA-Z0-9]+)', classroom_url)
@@ -108,12 +174,15 @@ class GoogleClassroomClient:
         except Exception as e:
             print(f"❌ Login failed: {e}")
 
-    def get_courses(self, limit=10):
+    def get_courses(self, limit=100):
         if not self.service:
             print("❌ Not logged in.")
             return {"error": "Not logged in"}
 
-        results = self.service.courses().list(pageSize=limit).execute()
+        results = self.service.courses().list(
+            pageSize=limit,
+            courseStates=["ACTIVE"]
+            ).execute()
         print("results", results)
         courses = results.get('courses', [])
 
@@ -122,8 +191,14 @@ class GoogleClassroomClient:
             return {"error": "No courses found"}
         else:
             print('Courses:')
+            profile = self.service.userProfiles().get(userId="me").execute()
+            current_user_id = profile["id"]
+
+            courses = [course for course in courses if course.get("ownerId") != current_user_id]
+
             for course in courses:
                 print(f"{course['name']} ({course['id']})")
+                
 
         return {"courses": courses}
 

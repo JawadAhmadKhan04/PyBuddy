@@ -25,6 +25,11 @@
       "title": "Logout"
     },
     {
+      "command": "pybuddy.refreshGCRData",
+      "title": "Refresh Google Classroom",
+      "icon": "$(refresh)"
+    },
+    {
       "command": "pybuddy.addApiKey",
       "title": "Add API Key",
       "icon": "$(key)"
@@ -40,11 +45,6 @@
       "icon": "$(trash)"
     },
     {
-      "command": "pybuddy.showQuestions",
-      "title": "Questions",
-      "icon": "$(book)"
-    },
-    {
       "command": "pybuddy.clearQuestions",
       "title": "Clear Questions",
       "icon": "$(trash)"
@@ -53,11 +53,6 @@
       "command": "pybuddy.generateHints",
       "title": "Generate Hints",
       "icon": "$(light-bulb)"
-    },
-    {
-      "command": "pybuddy.showQuestions",
-      "title": "Show Questions",
-      "icon": "$(book)"
     },
     {
       "command": "pybuddy.preprocessFiles",
@@ -109,14 +104,19 @@
           "group": "navigation"
         },
         {
+          "command": "pybuddy.refreshGCRData",
+          "when": "pybuddyLoggedIn && view == pybuddy-classroom-tree",
+          "group": "navigation@1"
+        },
+        {
           "command": "pybuddy.addApiKey",
           "when": "view == pybuddy-classroom-tree",
-          "group": "navigation"
+          "group": "navigation@2"
         },
         {
           "command": "pybuddy.logout",
           "when": "pybuddyLoggedIn && view == pybuddy-classroom-tree",
-          "group": "navigation"
+          "group": "navigation@3"
         },
         {
           "command": "pybuddy.clearHints",
