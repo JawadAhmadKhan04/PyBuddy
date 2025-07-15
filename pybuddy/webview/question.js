@@ -31,8 +31,19 @@ class QuestionInterface {
         const messageContent = document.createElement('div');
         messageContent.className = 'message-content';
         
-        // Format the content (handle code blocks, line breaks, etc.)
-        const formattedContent = this.formatQuestion(content, isQuestion);
+        // If content contains a <br><br>, treat the first line as trusted HTML (for due date)
+        let firstLine = '';
+        let rest = content;
+        const splitIndex = content.indexOf('<br><br>');
+        if (splitIndex !== -1) {
+            firstLine = content.substring(0, splitIndex);
+            rest = content.substring(splitIndex + 8); // skip <br><br>
+        }
+        let formattedContent = '';
+        if (firstLine) {
+            formattedContent += firstLine + '<br><br>';
+        }
+        formattedContent += this.formatQuestion(rest, isQuestion);
         messageContent.innerHTML = formattedContent;
         
         messageDiv.appendChild(messageContent);
@@ -104,6 +115,9 @@ class QuestionInterface {
         switch (message.type) {
             case 'question':
                 this.addQuestion(message.content, true);
+                break;
+            case 'showAssignmentDescription':
+                this.addQuestion(message.content, false);
                 break;
             case 'error':
                 this.addQuestion(`❌ Error: ${message.content}`, false);

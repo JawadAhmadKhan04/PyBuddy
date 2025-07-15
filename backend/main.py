@@ -184,10 +184,13 @@ async def login():
 
 @app.post("/get_gcr_data")
 async def get_gcr_data():
-    gcr_data = gcr.get_gcr_data()
-    if gcr_data.get("error"):
-        return {"error": gcr_data["error"]}
-    return {"gcr_data": gcr_data["gcr_data"]}
+    gcr_result = gcr.get_gcr_data()
+    
+    if isinstance(gcr_result, dict) and "error" in gcr_result:
+        return {"error": gcr_result["error"]}
+    
+    return {"gcr_data": gcr_result}
+
 
 @app.post("/logout")
 async def logout():
