@@ -182,12 +182,12 @@ async def login():
     gcr.login()
     return {"message": "Logged in successfully"}
 
-@app.post("/get_courses")
-async def get_courses():
-    courses = gcr.get_courses()
-    if courses.get("error"):
-        return {"error": courses["error"]}
-    return {"courses": courses["courses"]}
+@app.post("/get_gcr_data")
+async def get_gcr_data():
+    gcr_data = gcr.get_gcr_data()
+    if gcr_data.get("error"):
+        return {"error": gcr_data["error"]}
+    return {"gcr_data": gcr_data["gcr_data"]}
 
 @app.post("/logout")
 async def logout():
