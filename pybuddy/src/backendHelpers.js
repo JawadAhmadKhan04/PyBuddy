@@ -98,6 +98,26 @@ async function handleLoginFlow() {
     );
 }
 
+async function backendLogin() {
+    try {
+        const response = await fetch(`${backend_url}/login`, { method: 'POST' });
+        const data = await response.json();
+        vscode.window.showInformationMessage(data.message || 'Logged in!');
+    } catch (error) {
+        vscode.window.showErrorMessage('Login failed: ' + error.message);
+    }
+}
+
+async function backendLogout() {
+    try {
+        const response = await fetch(`${backend_url}/logout`, { method: 'POST' });
+        const data = await response.json();
+        vscode.window.showInformationMessage(data.message || 'Logged out!');
+    } catch (error) {
+        vscode.window.showErrorMessage('Logout failed: ' + error.message);
+    }
+}
+
 function handleShowHints(chatProvider) {
 	return async function (customPath = null) {
 		const activeEditor = vscode.window.activeTextEditor;
@@ -315,5 +335,7 @@ module.exports = {
 	handleGenerateHints,
 	handleShowHints,
 	handleGenerateQuestions,
-	handleAddApiKey
+	handleAddApiKey,
+    backendLogin,
+    backendLogout
 };
