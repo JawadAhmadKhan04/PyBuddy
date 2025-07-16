@@ -21,7 +21,7 @@ class QuestionInterface {
         });
     }
 
-    addQuestion(content, isQuestion = false) {
+    addQuestion(content, isQuestion = false, showStart = true) {
         // Clear everything including welcome message
         this.questionMessages.innerHTML = '';
         
@@ -51,14 +51,22 @@ class QuestionInterface {
             const buttonContainer = document.createElement('div');
             buttonContainer.style.marginTop = '16px';
             buttonContainer.id = 'assignment-action-btn-container';
-            const startBtn = document.createElement('button');
-            startBtn.textContent = 'Start';
-            startBtn.className = 'vscode-button';
-            startBtn.id = 'assignment-action-btn';
-            startBtn.onclick = () => {
-                vscode.postMessage({ type: 'startAssignment' });
-            };
-            buttonContainer.appendChild(startBtn);
+            const actionBtn = document.createElement('button');
+            actionBtn.className = 'vscode-button';
+            actionBtn.id = 'assignment-action-btn';
+            // Decide which button to show based on showStart
+            if (showStart) {
+                actionBtn.textContent = 'Start';
+                actionBtn.onclick = () => {
+                    vscode.postMessage({ type: 'startAssignment' });
+                };
+            } else {
+                actionBtn.textContent = 'Submit';
+                actionBtn.onclick = () => {
+                    vscode.postMessage({ type: 'submitAssignment' });
+                };
+            }
+            buttonContainer.appendChild(actionBtn);
             messageContent.appendChild(buttonContainer);
         }
         
@@ -133,7 +141,8 @@ class QuestionInterface {
                 this.addQuestion(message.content, true);
                 break;
             case 'showAssignmentDescription':
-                this.addQuestion(message.content, false);
+                // If message.showStart is defined, use it, otherwise default to true
+                this.addQuestion(message.content, false, message.showStart !== false);
                 break;
             case 'swapToSubmitButton':
                 this.swapToSubmitButton();

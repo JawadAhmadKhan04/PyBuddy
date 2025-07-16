@@ -286,10 +286,35 @@ function activate(context) {
                 if (firstLine) {
                     content = `${firstLine}${secondLine ? '<br>' + secondLine : ''}<br><br>${content}`;
                 }
+                // Check if the assignment folder/file exists
+                let showStart = true;
+                try {
+                    let courseName = 'UnknownCourse';
+                    if (node.parent && node.parent.parent) {
+                        courseName = node.parent.parent.label;
+                    }
+                    const safeCourseName = courseName.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/ +/g, '_');
+                    const safeAssignmentName = node.label.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/ +/g, '_');
+                    const desktopPath = path.join(os.homedir(), 'Desktop');
+                    // Try to find the GoogleClassroomLocal folder for the current user
+                    const workspaceRoot = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath;
+                    let gclFolder = workspaceRoot;
+                    // If not in the expected folder, fallback to Desktop
+                    if (!gclFolder || !gclFolder.includes('GoogleClassroomLocal')) {
+                        gclFolder = desktopPath;
+                    }
+                    const mainPyPath = path.join(gclFolder, safeCourseName, safeAssignmentName, 'main.py');
+                    if (fs.existsSync(mainPyPath)) {
+                        showStart = false;
+                    }
+                } catch (err) {
+                    // If any error, default to showStart = true
+                }
                 if (questionProvider._webviewView) {
                     questionProvider._webviewView.webview.postMessage({
                         type: 'showAssignmentDescription',
-                        content: content
+                        content: content,
+                        showStart: showStart
                     });
                 } else {
                     vscode.window.showInformationMessage(node.description);
@@ -352,6 +377,9 @@ function activate(context) {
                 questionProvider._webviewView.webview.postMessage({ type: 'swapToSubmitButton' });
             }
         }
+        if (msg.type === 'submitAssignment') {
+            vscode.window.showInformationMessage('Submit button clicked');
+        }
     }
 
     // Attach the handler ONCE when the webview is available
@@ -389,7 +417,9 @@ function activate(context) {
                 // Show question in panel
                 vscode.commands.executeCommand('pybuddy.showAssignmentDescription', assignmentNode);
             }
-		}
+            // Show only the hints for the current file
+            handleShowHints(chatProvider)();
+        }
 	});
 
     // Register a command to handle assignment selection from the tree and open the corresponding file in the Explorer
@@ -402,8 +432,18 @@ function activate(context) {
             }
             const safeCourseName = courseName.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/ +/g, '_');
             const safeAssignmentName = assignmentNode.label.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/ +/g, '_');
+
+            // Fetch username from backendHelpers
+            let userId = 'user';
+            try {
+                userId = await getUserName();
+            } catch (err) {
+                vscode.window.showWarningMessage('Could not fetch user name, using default folder.');
+            }
+            const safeUserId = userId.replace(/[^a-zA-Z0-9-_]/g, '_');
             const desktopPath = path.join(os.homedir(), 'Desktop');
-            const gclFolder = path.join(desktopPath, 'GoogleClassroomLocal');
+            const gclFolder = path.join(desktopPath, `GoogleClassroomLocal_${safeUserId}`);
+
             const mainPyPath = path.join(gclFolder, safeCourseName, safeAssignmentName, 'main.py');
             if (fs.existsSync(mainPyPath)) {
                 const mainPyUri = vscode.Uri.file(mainPyPath);
