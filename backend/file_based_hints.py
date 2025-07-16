@@ -161,7 +161,7 @@ class FileBasedHints:
 
                   
 
-    def get_general_hints(self, present_code: dict[str, str], folder_name: str, question_no: int) -> dict:
+    def get_general_hints(self, present_code: dict[str, str], question_data: str) -> dict:
         """
         Generates hints for the file using the language model.
         
@@ -170,15 +170,15 @@ class FileBasedHints:
             folder_name (str): Name of the folder containing questions
             question_no (int): The number of the question to generate hints for.
         """
-        print(f"Generating hints for question number: {question_no}")
+        # print(f"Generating hints for question number: {question_no}")
         
         try:
-            question_text, instructions = self.get_question_text(folder_name, question_no)
-            if not question_text:
-                return {"error": "Could not retrieve question text"}
+            # question_text, instructions = self.get_question_text(folder_name, question_no)
+            # if not question_text:
+            #     return {"error": "Could not retrieve question text"}
             
-            print("question_text:", question_text)
-            print("instructions:", instructions)
+            # print("question_text:", question_text)
+            # print("instructions:", instructions)
             
             # Extract code from present_code dict
             current_code = ""
@@ -193,10 +193,8 @@ class FileBasedHints:
             prompt = f"""You are an intelligent and helpful Python tutor assisting a student with the following programming task.
 
 == Problem ==
-{question_text}
+{question_data}
 
-== Instructions ==
-{instructions}
 
 == Student's Current Code ==
 {current_code}

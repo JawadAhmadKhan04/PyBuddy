@@ -29,7 +29,7 @@ class PreprocessingRequest(BaseModel):
     file_creation_method: str
 
 class GenerateHintsRequest(BaseModel):
-    file_path: str
+    question_data: str
     code_dict: Dict[str, str]
 
 class AddApiKeyRequest(BaseModel):
@@ -87,13 +87,14 @@ async def get_question(request: QuestionRequest):
 
 @app.post("/generate_hints")
 async def generate_hints(request: GenerateHintsRequest):
-    folder_path, question_number, parent_of_question_folder = preprocess_file(request.file_path)
-    # return hinter.get_general_hints(request.file_code, parent_of_question_folder, int(question_number))
+    # folder_path, question_number, parent_of_question_folder = preprocess_file(request.file_path)
+    
 
     code_dict = request.code_dict
+    question_data = request.question_data
     # You may need to extract parent_of_question_folder and question_number from the code_dict or request if needed
     # For now, just pass code_dict to hinter.get_general_hints
-    result = hinter.get_general_hints(code_dict, parent_of_question_folder, int(question_number))
+    result = hinter.get_general_hints(code_dict, question_data)
     
     # Check if the result contains an error
     if result.get("error"):
