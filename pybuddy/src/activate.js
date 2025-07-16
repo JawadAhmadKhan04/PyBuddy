@@ -7,7 +7,7 @@ const ChatProvider = require('./chatProvider');
 const QuestionProvider = require('./questionProvider');
 const ClassroomTreeProvider = require('./classroomTreeProvider');
 
-const { handleLoginFlow, handleGenerateHints, handleShowHints, handleGenerateQuestions, handleAddApiKey, backendLogin, backendLogout, fetchGCRData } = require('./backendHelpers');
+const { handleLoginFlow, handleGenerateHints, handleShowHints, handleGenerateQuestions, handleAddApiKey, backendLogin, backendLogout, fetchGCRData, getUserName } = require('./backendHelpers');
 const { openFolderInExplorer } = require('./fileHelpers');
 
 /**
@@ -35,6 +35,36 @@ function transformGCRDataToTree(gcrData) {
     }));
 }
 
+// Helper to set parent references on all nodes in the tree
+function setParentReferences(tree, parent = null) {
+    for (const node of tree) {
+        node.parent = parent;
+        if (node.children) {
+            setParentReferences(node.children, node);
+        }
+    }
+}
+
+// Helper to find assignment node by folder name
+function findAssignmentNode(tree, assignmentFolder) {
+    for (const course of tree) {
+        if (course.children) {
+            for (const section of course.children) {
+                if (section.label === 'Assignments' && section.children) {
+                    for (const assignment of section.children) {
+                        // Compare sanitized names
+                        const safeLabel = assignment.label.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/ +/g, '_');
+                        if (safeLabel === assignmentFolder) {
+                            return assignment;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
 function activate(context) {
 	console.log('PyBuddy extension is now active!');
 
@@ -53,16 +83,18 @@ function activate(context) {
 	vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', wasLoggedIn);
     classroomTreeProvider.setLoggedIn(wasLoggedIn);
     // On activation, if logged in, fetch GCR data
-    if (wasLoggedIn) {
+		if (wasLoggedIn) {
         (async () => {
             classroomTreeProvider.setLoading(true);
             const gcrData = await fetchGCRData();
-            classroomTreeProvider.setData(transformGCRDataToTree(gcrData));
+            const treeData = transformGCRDataToTree(gcrData);
+            setParentReferences(treeData);
+            classroomTreeProvider.setData(treeData);
             classroomTreeProvider.setLoading(false);
         })();
-    } else {
+		} else {
         classroomTreeProvider.setData([]);
-    }
+	}
 
 	// Get the addApiKey command function
 	const addApiKeyCommand = handleAddApiKey(context);
@@ -71,19 +103,49 @@ function activate(context) {
         vscode.commands.registerCommand('pybuddy.refreshGCRData', async () => {
             classroomTreeProvider.setLoading(true);
             const gcrData = await fetchGCRData();
-            classroomTreeProvider.setData(transformGCRDataToTree(gcrData));
+            const treeData = transformGCRDataToTree(gcrData);
+            setParentReferences(treeData);
+            classroomTreeProvider.setData(treeData);
             classroomTreeProvider.setLoading(false);
             vscode.window.showInformationMessage('Google Classroom data refreshed!');
         }),
 		vscode.commands.registerCommand('pybuddy.login', async () => {
+            
 			await backendLogin();
 			context.globalState.update('pybuddyLoggedIn', true);
 			vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', true);
             classroomTreeProvider.setLoggedIn(true);
             classroomTreeProvider.setLoading(true);
+
+            // Fetch username from backendHelpers
+            let userId = 'user';
+            try {
+                userId = await getUserName();
+            } catch (err) {
+                vscode.window.showWarningMessage('Could not fetch user name, using default folder.');
+            }
+            const safeUserId = userId.replace(/[^a-zA-Z0-9-_]/g, '_');
+            const desktopPath = path.join(os.homedir(), 'Desktop');
+            const gclFolder = path.join(desktopPath, `GoogleClassroomLocal_${safeUserId}`);
+            const currentWorkspace = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath;
+            if (!currentWorkspace || path.resolve(currentWorkspace) !== path.resolve(gclFolder)) {
+                try {
+                    if (!fs.existsSync(gclFolder)) {
+                        fs.mkdirSync(gclFolder, { recursive: true });
+                    }
+                    const uri = vscode.Uri.file(gclFolder);
+                    vscode.commands.executeCommand('vscode.openFolder', uri, false);
+                    return; // Stop further activation until reload
+                } catch (err) {
+                    vscode.window.showErrorMessage('Failed to create or open GoogleClassroomLocal folder: ' + err.message);
+                    return;
+                }
+            }
             // Fetch GCR data from backend
             const gcrData = await fetchGCRData();
-            classroomTreeProvider.setData(transformGCRDataToTree(gcrData));
+            const treeData = transformGCRDataToTree(gcrData);
+            setParentReferences(treeData);
+            classroomTreeProvider.setData(treeData);
             classroomTreeProvider.setLoading(false);
 		}),
 		vscode.commands.registerCommand('pybuddy.logout', async () => {
@@ -92,10 +154,16 @@ function activate(context) {
 			vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', false);
             classroomTreeProvider.setLoggedIn(false);
             classroomTreeProvider.setData([]);
+            // Reset the question and hints panels to default
+            if (questionProvider._webviewView) {
+                questionProvider._webviewView.webview.postMessage({ type: 'clearQuestions' });
+            }
+            if (chatProvider._webviewView) {
+                chatProvider._webviewView.webview.postMessage({ type: 'clearChat' });
+            }
 		}),
         vscode.commands.registerCommand('pybuddy.addApiKey', addApiKeyCommand),
 		vscode.commands.registerCommand('pybuddy.showHints', handleShowHints(chatProvider)),
-		vscode.commands.registerCommand('pybuddy.generateHints', handleGenerateHints(chatProvider)),
 		vscode.commands.registerCommand('pybuddy.clearHints', () => {
 			if (chatProvider._webviewView) {
 				chatProvider._webviewView.webview.postMessage({ type: 'clearChat' });
@@ -170,6 +238,7 @@ function activate(context) {
 	);
 
     let currentAssignmentNode = null;
+    let currentAssignmentDescription = null;
 
     // Register the command only once
     context.subscriptions.push(
@@ -177,6 +246,7 @@ function activate(context) {
             if (questionProvider && questionProvider._webviewView && node && node.label) {
                 questionProvider._webviewView.webview.currentAssignmentLabel = node.label;
                 currentAssignmentNode = node;
+                currentAssignmentDescription = node.description; // Store description for hint generation
             }
             if (node && node.description !== undefined) {
                 // Log the submissionState for debugging
@@ -228,6 +298,13 @@ function activate(context) {
         })
     );
 
+    // Register the generateHints command to always use the latest assignment description
+    context.subscriptions.push(
+        vscode.commands.registerCommand('pybuddy.generateHints', () => {
+            handleGenerateHints(chatProvider)(currentAssignmentDescription);
+        })
+    );
+
     // Register the onDidReceiveMessage handler ONCE
     function handleAssignmentWebviewMessage(msg) {
         if (msg.type === 'startAssignment' && currentAssignmentNode) {
@@ -237,8 +314,21 @@ function activate(context) {
                 vscode.window.showErrorMessage('No workspace is open.');
                 return;
             }
-            const folderName = currentAssignmentNode.label.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/ +/g, '_');
-            const assignmentFolder = path.join(workspaceRoot, folderName);
+            // Find course name from the parent node of the assignment
+            let courseName = 'UnknownCourse';
+            if (currentAssignmentNode && currentAssignmentNode.parent && currentAssignmentNode.parent.parent) {
+                courseName = currentAssignmentNode.parent.parent.label;
+            } else if (currentAssignmentNode && currentAssignmentNode.courseName) {
+                courseName = currentAssignmentNode.courseName;
+            }
+            // Fallback: try to extract from nodeData if available
+            if (currentAssignmentNode.nodeData && currentAssignmentNode.nodeData.courseName) {
+                courseName = currentAssignmentNode.nodeData.courseName;
+            }
+            // Sanitize folder names
+            const safeCourseName = courseName.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/ +/g, '_');
+            const safeAssignmentName = currentAssignmentNode.label.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/ +/g, '_');
+            const assignmentFolder = path.join(workspaceRoot, safeCourseName, safeAssignmentName);
             try {
                 if (!fs.existsSync(assignmentFolder)) {
                     fs.mkdirSync(assignmentFolder, { recursive: true });
@@ -284,37 +374,47 @@ function activate(context) {
 
 	vscode.window.onDidChangeActiveTextEditor(async (editor) => {
 		if (editor && editor.document && editor.document.languageId === 'python') {
-            // Extract folder name from file path
             const filePath = editor.document.uri.fsPath;
             const pathParts = filePath.split(/[\\/]/);
-            // Find the folder name (parent directory)
-            const folderName = pathParts.length > 1 ? pathParts[pathParts.length - 2] : '';
-            // TODO: Lookup the question data from the frontend's local cache using folderName
-            // Example:
-            // const questionData = frontendCache[folderName];
-            // if (questionData) {
-            //     // Display questionData in the question panel
-            // }
-            // No backend API call here anymore
+            const assignmentFolder = pathParts.length > 1 ? pathParts[pathParts.length - 2] : '';
+            const treeData = classroomTreeProvider.data;
+            const assignmentNode = findAssignmentNode(treeData, assignmentFolder);
+            if (assignmentNode) {
+                // Reveal in tree (if supported)
+                try {
+                    await vscode.commands.executeCommand('pybuddy-classroom-tree.reveal', assignmentNode);
+                } catch (e) {
+                    // Not all tree providers support reveal, so ignore errors
+                }
+                // Show question in panel
+                vscode.commands.executeCommand('pybuddy.showAssignmentDescription', assignmentNode);
+            }
 		}
 	});
 
-    // Ensure GoogleClassroomLocal folder exists on Desktop and open it as workspace if not already
-    const desktopPath = path.join(os.homedir(), 'Desktop');
-    const gclFolder = path.join(desktopPath, 'GoogleClassroomLocal');
-    const currentWorkspace = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath;
-    if (!currentWorkspace || path.resolve(currentWorkspace) !== path.resolve(gclFolder)) {
-        try {
-            if (!fs.existsSync(gclFolder)) {
-                fs.mkdirSync(gclFolder, { recursive: true });
+    // Register a command to handle assignment selection from the tree and open the corresponding file in the Explorer
+    context.subscriptions.push(
+        vscode.commands.registerCommand('pybuddy.openAssignmentFile', async (assignmentNode) => {
+            // Find the course name
+            let courseName = 'UnknownCourse';
+            if (assignmentNode && assignmentNode.parent && assignmentNode.parent.parent) {
+                courseName = assignmentNode.parent.parent.label;
             }
-            const uri = vscode.Uri.file(gclFolder);
-            vscode.commands.executeCommand('vscode.openFolder', uri, false);
-            return; // Stop further activation until reload
-        } catch (err) {
-            vscode.window.showErrorMessage('Failed to create or open GoogleClassroomLocal folder: ' + err.message);
-        }
-    }
+            const safeCourseName = courseName.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/ +/g, '_');
+            const safeAssignmentName = assignmentNode.label.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/ +/g, '_');
+            const desktopPath = path.join(os.homedir(), 'Desktop');
+            const gclFolder = path.join(desktopPath, 'GoogleClassroomLocal');
+            const mainPyPath = path.join(gclFolder, safeCourseName, safeAssignmentName, 'main.py');
+            if (fs.existsSync(mainPyPath)) {
+                const mainPyUri = vscode.Uri.file(mainPyPath);
+                await vscode.window.showTextDocument(mainPyUri);
+            } else {
+                vscode.window.showWarningMessage('main.py for this assignment does not exist.');
+            }
+            // Also show the question panel for this assignment
+            vscode.commands.executeCommand('pybuddy.showAssignmentDescription', assignmentNode);
+        })
+    );
 }
 
 module.exports = { activate };

@@ -120,6 +120,12 @@ class GoogleClassroomClient:
             print(f"❌ Failed to fetch assignments for course {course_id}: {e}")
             return None
 
+    def get_user_name(self):
+        if not self.service:
+            print("❌ Not logged in.")
+            return None
+        profile = self.service.userProfiles().get(userId="me").execute()
+        return profile["name"]["fullName"]
             
             
     def extract_course_id(self, classroom_url):

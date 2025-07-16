@@ -85,6 +85,10 @@ async def get_question(request: QuestionRequest):
     question_text, instructions = hinter.get_question_text(parent_of_question_folder, int(question_number))
     return {"question_text": question_text, "instructions": instructions, "links": extract_links(question_text)}
 
+@app.post("/get_user_name")
+async def get_user_name():
+    return {"user_name": gcr.get_user_name()}
+
 @app.post("/generate_hints")
 async def generate_hints(request: GenerateHintsRequest):
     # folder_path, question_number, parent_of_question_folder = preprocess_file(request.file_path)
