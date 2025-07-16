@@ -1,11 +1,13 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import re
 from file_based_hints import FileBasedHints
 from typing import Dict
 from google_classroom import GoogleClassroomClient
-
+import os
+from git import GitHub
 app = FastAPI()
 
 # Add CORS middleware
@@ -37,14 +39,39 @@ class AddApiKeyRequest(BaseModel):
 
 # class ChatRequest(BaseModel):
 #     message: str
+from pydantic import BaseModel
 
-
+class GitPushRequest(BaseModel):
+    github_username: str
+    github_token: str
+    repo_name: str
+    course_id: str
+    assignment_id: str
 
 def extract_links(text):
     links = re.findall(r'https?://[^\s]+', text)
     return "\n".join(links)
 
-
+@app.post("/submit/github")
+async def github_submit(req: GitPushRequest):
+    try:
+        folder_path = os.path.join(os.path.dirname(__file__), "code")
+        if not os.path.isdir(folder_path):
+            raise HTTPException(status_code=400, detail="Code folder not found")
+        github = GitHub(req.github_username, req.github_token)
+        if not github.create_github_repo(req.repo_name):
+            raise HTTPException(status_code=500, detail="Failed to create GitHub repository")
+        github.push_code_folder(folder_path, req.repo_name)
+        github.zip_code_folder(folder_path, "code_submission.zip")
+        return {
+            "status": "github_success",
+            "repo_url": f"https://github.com/{req.github_username}/{req.repo_name}"
+        }
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"GitHub submission failed: {str(e)}")
+    
 @app.post("/preprocessing_file")
 async def get_root(request: PreprocessingRequest):
     try:
