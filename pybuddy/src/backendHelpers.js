@@ -156,9 +156,8 @@ function handleShowHints(chatProvider) {
 }
 
 function handleGenerateHints(chatProvider) {
-	return async function (customPath = null) {
-		// your generateHintsForFile logic here...
-        const activeEditor = vscode.window.activeTextEditor;
+	return async function (description = null) {
+		const activeEditor = vscode.window.activeTextEditor;
 		if (activeEditor) {
 			currentFilePath = activeEditor.document.uri.fsPath;
 			await vscode.window.withProgress(
@@ -183,7 +182,12 @@ function handleGenerateHints(chatProvider) {
 
 					try {
 						const endpoint = `${backend_url}/generate_hints`;
-						const requestBody = { file_path: filePath, code_dict: codeDict };
+						console.log(description);
+						const requestBody = {
+							code_dict: codeDict,
+							question_data: description || ''
+						};
+						console.log(requestBody);
 						const response = await fetch(endpoint, {
 							method: 'POST',
 							headers: { 'Content-Type': 'application/json' },
@@ -196,42 +200,32 @@ function handleGenerateHints(chatProvider) {
 						console.log(data.hint)
 
 						if (data.error) {
-							// if (chatProvider._webviewView) {
-							//     chatProvider._webviewView.webview.postMessage({ 
-							//         type: 'error', 
-							//         content: data.error 
-							//     });
-							// }
 							vscode.window.showErrorMessage("Error: API Key is Invalid. Either enter a valid API key or check if the API key is not expired.");
-						} else if (data.hint) {
-							// Send hint to chat interface
-							let hintMessage;
-							const pathParts = filePath.split('\\');
-							const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
-							if (fileNameIndex > 0) {
-								const folderPathDisplay = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
-								hintMessage = `💡 Hint for ${folderPathDisplay}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
-							} else {
-								// Fallback to just the filename if path structure is different
-								hintMessage = `💡 Hint for ${activeEditor.document.fileName.split('/').pop()}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
-							}
-							// Store hint in fileHints
-							if (!fileHints[currentFilePath]) {
-								fileHints[currentFilePath] = [];
-							}
-							fileHints[currentFilePath].push(hintMessage);
-							
-							// Send hint to chat interface
-							if (chatProvider._webviewView) {
-								chatProvider._webviewView.webview.postMessage({ 
-									type: 'hint', 
-									content: hintMessage 
-								});
-							}
-							vscode.window.showInformationMessage('Hint generated and sent to chat!');
-						} else {
-							vscode.window.showWarningMessage('No hint returned by backend.');
 						}
+						// Send hint to chat interface
+						let hintMessage;
+						const pathParts = filePath.split('\\');
+						const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
+						if (fileNameIndex > 0) {
+							const folderPathDisplay = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
+							hintMessage = `💡 Hint for ${folderPathDisplay}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
+						} else {
+							// Fallback to just the filename if path structure is different
+							hintMessage = `💡 Hint for ${activeEditor.document.fileName.split('/').pop()}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
+						}
+						// Store hint in fileHints
+						if (!fileHints[currentFilePath]) {
+							fileHints[currentFilePath] = [];
+						}
+						fileHints[currentFilePath].push(hintMessage);
+						// Send hint to chat interface
+						if (chatProvider._webviewView) {
+							chatProvider._webviewView.webview.postMessage({ 
+								type: 'hint', 
+								content: hintMessage 
+							});
+						}
+						vscode.window.showInformationMessage('Hint generated and sent to chat!');
 					} catch (error) {
 						vscode.window.showErrorMessage('Failed to generate hints: ' + error.message);
 					}
@@ -348,6 +342,20 @@ async function fetchGCRData() {
     }
 }
 
+// Fetch the username from the backend
+async function getUserName() {
+    try {
+        const response = await fetch(`${backend_url}/get_user_name`, { method: 'POST' });
+        if (response.ok) {
+            const data = await response.json();
+            return data.user_name;
+        }
+    } catch (err) {
+        // Optionally log error
+    }
+    return 'user';
+}
+
 module.exports = {
 	handleLoginFlow,
 	handleGenerateHints,
@@ -356,5 +364,6 @@ module.exports = {
 	handleAddApiKey,
     backendLogin,
     backendLogout,
-    fetchGCRData
+    fetchGCRData,
+    getUserName
 };

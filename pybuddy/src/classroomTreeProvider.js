@@ -85,8 +85,8 @@ class ClassroomTreeProvider {
                     'assignment-title',
                     child,
                     {
-                        command: 'pybuddy.showAssignmentDescription',
-                        title: 'Show Assignment Description',
+                        command: 'pybuddy.openAssignmentFile',
+                        title: 'Open Assignment File',
                         arguments: [child]
                     }
                 )
