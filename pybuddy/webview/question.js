@@ -46,6 +46,22 @@ class QuestionInterface {
         formattedContent += this.formatQuestion(rest, isQuestion);
         messageContent.innerHTML = formattedContent;
         
+        // Add Start/Submit button for assignment descriptions only
+        if (!isQuestion) {
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.marginTop = '16px';
+            buttonContainer.id = 'assignment-action-btn-container';
+            const startBtn = document.createElement('button');
+            startBtn.textContent = 'Start';
+            startBtn.className = 'vscode-button';
+            startBtn.id = 'assignment-action-btn';
+            startBtn.onclick = () => {
+                vscode.postMessage({ type: 'startAssignment' });
+            };
+            buttonContainer.appendChild(startBtn);
+            messageContent.appendChild(buttonContainer);
+        }
+        
         messageDiv.appendChild(messageContent);
         this.questionMessages.appendChild(messageDiv);
         
@@ -119,6 +135,9 @@ class QuestionInterface {
             case 'showAssignmentDescription':
                 this.addQuestion(message.content, false);
                 break;
+            case 'swapToSubmitButton':
+                this.swapToSubmitButton();
+                break;
             case 'error':
                 this.addQuestion(`❌ Error: ${message.content}`, false);
                 break;
@@ -128,6 +147,16 @@ class QuestionInterface {
             case 'loadQuestions':
                 this.loadSavedQuestions(message.questions);
                 break;
+        }
+    }
+
+    swapToSubmitButton() {
+        const btn = document.getElementById('assignment-action-btn');
+        if (btn) {
+            btn.textContent = 'Submit';
+            btn.onclick = () => {
+                vscode.postMessage({ type: 'submitAssignment' });
+            };
         }
     }
 

@@ -108,7 +108,7 @@ class GoogleClassroomClient:
                 result.append({
                     "assignmentId": work.get("id", ""),
                     "title": work.get("title", ""),
-                    "description": work.get("description", "No description given of {title}"),
+                    "description": work.get("description", "No description given of {work.title}"),
                     "dueDate": work.get("dueDate", {}),
                     "dueTime": work.get("dueTime", {}),
                     "submissionState": submission_state
