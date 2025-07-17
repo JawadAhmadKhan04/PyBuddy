@@ -55,22 +55,23 @@ def extract_links(text):
 @app.post("/submit/github")
 async def github_submit(req: GitPushRequest):
     try:
-        folder_path = os.path.join(os.path.dirname(__file__), "code")
-        if not os.path.isdir(folder_path):
-            raise HTTPException(status_code=400, detail="Code folder not found")
         github = GitHub(req.github_username, req.github_token)
-        if not github.create_github_repo(req.repo_name):
-            raise HTTPException(status_code=500, detail="Failed to create GitHub repository")
-        github.push_code_folder(folder_path, req.repo_name)
-        github.zip_code_folder(folder_path, "code_submission.zip")
-        return {
-            "status": "github_success",
-            "repo_url": f"https://github.com/{req.github_username}/{req.repo_name}"
-        }
-    except HTTPException as e:
-        raise e
+        success, error = github.create_repo(req.repo_name)
+        if not success:
+            return {"error": error}
+
+        for filename, code in req.code_files.items():
+            ok, result = github.push_file(req.repo_name, filename, code, "Initial commit")
+            if not ok:
+                return {"error": f"Failed to push {filename}: {result}"}
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"GitHub submission failed: {str(e)}")
+        return {"error": str(e)}
+
+    return {
+        "success": True,
+        "github_link": f"https://github.com/{req.github_username}/{req.repo_name}"
+    }
     
 @app.post("/preprocessing_file")
 async def get_root(request: PreprocessingRequest):
@@ -118,9 +119,7 @@ async def get_user_name():
 
 @app.post("/generate_hints")
 async def generate_hints(request: GenerateHintsRequest):
-    # folder_path, question_number, parent_of_question_folder = preprocess_file(request.file_path)
-    
-
+    # folder_path, question_number, parent_of_question_folder = preprocess_file(request.file_path)    
     code_dict = request.code_dict
     question_data = request.question_data
     # You may need to extract parent_of_question_folder and question_number from the code_dict or request if needed
@@ -130,7 +129,6 @@ async def generate_hints(request: GenerateHintsRequest):
     # Check if the result contains an error
     if result.get("error"):
         return {"error": result["error"]}
-    
     return result
 
     import os
@@ -229,4 +227,3 @@ async def logout():
     gcr.logout()
     return {"message": "Logged out successfully"}
 
-    
