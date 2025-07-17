@@ -47,6 +47,7 @@ class GitPushRequest(BaseModel):
     repo_name: str
     course_id: str
     assignment_id: str
+    code_files: Dict[str, str]
 
 def extract_links(text):
     links = re.findall(r'https?://[^\s]+', text)

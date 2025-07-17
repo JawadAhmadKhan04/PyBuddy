@@ -483,20 +483,33 @@ function activate(context) {
                     }
                 }
             }
-            // Call backend API
-            const result = await submitAssignmentToGithub({
-                github_username: githubUsername,
-                github_token: githubToken,
-                repo_name: repoName,
-                course_id: courseId,
-                assignment_id: assignmentId,
-                code_files: codeFiles
+            // Call backend API with loading bar
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: 'Submitting assignment to GitHub...',
+                cancellable: false
+            }, async (progress) => {
+                const result = await submitAssignmentToGithub({
+                    github_username: githubUsername,
+                    github_token: githubToken,
+                    repo_name: repoName,
+                    course_id: courseId,
+                    assignment_id: assignmentId,
+                    code_files: codeFiles
+                });
+                if (result.github_link) {
+                    vscode.window.showInformationMessage(`Assignment submitted! GitHub link: ${result.github_link}`);
+                    // Automatically refresh GCR data
+                    classroomTreeProvider.setLoading(true);
+                    const gcrData = await fetchGCRData();
+                    const treeData = transformGCRDataToTree(gcrData);
+                    setParentReferences(treeData);
+                    classroomTreeProvider.setData(treeData);
+                    classroomTreeProvider.setLoading(false);
+                } else {
+                    vscode.window.showErrorMessage(`Failed to submit assignment: ${result.error || 'Unknown error'}`);
+                }
             });
-            if (result.github_link) {
-                vscode.window.showInformationMessage(`Assignment submitted! GitHub link: ${result.github_link}`);
-            } else {
-                vscode.window.showErrorMessage(`Failed to submit assignment: ${result.error || 'Unknown error'}`);
-            }
         }
     }
 
