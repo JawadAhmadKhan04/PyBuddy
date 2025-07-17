@@ -7,7 +7,7 @@ const ChatProvider = require('./chatProvider');
 const QuestionProvider = require('./questionProvider');
 const ClassroomTreeProvider = require('./classroomTreeProvider');
 
-const { handleLoginFlow, handleGenerateHints, handleShowHints, handleGenerateQuestions, handleAddApiKey, backendLogin, backendLogout, fetchGCRData, getUserName } = require('./backendHelpers');
+const { handleLoginFlow, handleGenerateHints, handleShowHints, handleGenerateQuestions, handleAddApiKey, backendLogin, backendLogout, fetchGCRData, getUserName, checkStartupAuth } = require('./backendHelpers');
 const { openFolderInExplorer } = require('./fileHelpers');
 
 /**
@@ -18,6 +18,7 @@ const { openFolderInExplorer } = require('./fileHelpers');
 function transformGCRDataToTree(gcrData) {
     return gcrData.map(course => ({
         label: course.courseName,
+        courseId: course.courseId,
         children: [
             {
                 label: 'Assignments',
@@ -78,23 +79,54 @@ function activate(context) {
 		vscode.window.registerWebviewViewProvider('pybuddy-questions', questionProvider)
 	);
 
-	// Check login state on activation
-	const wasLoggedIn = context.globalState.get('pybuddyLoggedIn', false);
-	vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', wasLoggedIn);
-    classroomTreeProvider.setLoggedIn(wasLoggedIn);
-    // On activation, if logged in, fetch GCR data
-		if (wasLoggedIn) {
-        (async () => {
-            classroomTreeProvider.setLoading(true);
-            const gcrData = await fetchGCRData();
-            const treeData = transformGCRDataToTree(gcrData);
-            setParentReferences(treeData);
-            classroomTreeProvider.setData(treeData);
-            classroomTreeProvider.setLoading(false);
-        })();
-		} else {
-        classroomTreeProvider.setData([]);
-	}
+		// Check authentication state on activation using backend
+	(async () => {
+		try {
+			// Read token file if it exists, otherwise use empty string
+			let tokenContent = "";
+			const tokenPath = path.join(__dirname, '..', '..', 'backend', 'token.json');
+			if (fs.existsSync(tokenPath)) {
+				tokenContent = fs.readFileSync(tokenPath, 'utf-8');
+			}
+			
+			// Call the checkStartupAuth function to validate authentication
+			const authResult = await checkStartupAuth(tokenContent);
+			
+			// Update global state and UI based on backend response
+			context.globalState.update('pybuddyLoggedIn', authResult.authenticated);
+			vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', authResult.authenticated);
+			classroomTreeProvider.setLoggedIn(authResult.authenticated);
+			
+			if (authResult.authenticated) {
+				// Fetch GCR data if authenticated
+				classroomTreeProvider.setLoading(true);
+				try {
+					const gcrData = await fetchGCRData();
+					const treeData = transformGCRDataToTree(gcrData);
+					setParentReferences(treeData);
+					classroomTreeProvider.setData(treeData);
+				} catch (error) {
+					console.error('Failed to fetch GCR data:', error.message);
+					vscode.window.showWarningMessage('Failed to fetch Google Classroom data');
+				} finally {
+					classroomTreeProvider.setLoading(false);
+				}
+			} else {
+				// Clear data if not authenticated
+				classroomTreeProvider.setData([]);
+				if (authResult.error) {
+					console.log('Authentication error:', authResult.error);
+				}
+			}
+		} catch (error) {
+			console.error('Failed to validate authentication:', error.message);
+			// Fallback to not logged in state
+			context.globalState.update('pybuddyLoggedIn', false);
+			vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', false);
+			classroomTreeProvider.setLoggedIn(false);
+			classroomTreeProvider.setData([]);
+		}
+	})();
 
 	// Get the addApiKey command function
 	const addApiKeyCommand = handleAddApiKey(context);
@@ -111,7 +143,20 @@ function activate(context) {
         }),
 		vscode.commands.registerCommand('pybuddy.login', async () => {
             
-			await backendLogin();
+			const loginResponse = await backendLogin();
+			console.log(loginResponse);
+			// Save token to file if login was successful
+			if (loginResponse && loginResponse.token) {
+				const tokenPath = path.join(__dirname, '..', '..', 'backend', 'token.json');
+				try {
+					fs.writeFileSync(tokenPath, loginResponse.token);
+					console.log('Token file created successfully');
+				} catch (err) {
+					console.error('Failed to create token file:', err.message);
+					vscode.window.showErrorMessage('Failed to save authentication token: ' + err.message);
+				}
+			}
+			
 			context.globalState.update('pybuddyLoggedIn', true);
 			vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', true);
             classroomTreeProvider.setLoggedIn(true);
@@ -150,6 +195,18 @@ function activate(context) {
 		}),
 		vscode.commands.registerCommand('pybuddy.logout', async () => {
 			await backendLogout();
+			
+			// Delete token.json file if it exists
+			const tokenPath = path.join(__dirname, '..', '..', 'backend', 'token.json');
+			try {
+				if (fs.existsSync(tokenPath)) {
+					fs.unlinkSync(tokenPath);
+					console.log('Token file deleted successfully');
+				}
+			} catch (err) {
+				console.error('Failed to delete token file:', err.message);
+			}
+			
 			context.globalState.update('pybuddyLoggedIn', false);
 			vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', false);
             classroomTreeProvider.setLoggedIn(false);
@@ -378,7 +435,23 @@ function activate(context) {
             }
         }
         if (msg.type === 'submitAssignment') {
-            vscode.window.showInformationMessage('Submit button clicked');
+            // Extract courseId, assignmentId, and assignment title
+            let courseId = 'Unknown';
+            let assignmentId = 'Unknown';
+            let assignmentTitle = 'Unknown';
+            if (currentAssignmentNode) {
+                assignmentId = currentAssignmentNode.assignmentId || 'Unknown';
+                assignmentTitle = currentAssignmentNode.label || 'Unknown';
+                // Traverse up to find the course node
+                let courseNode = currentAssignmentNode.parent && currentAssignmentNode.parent.parent;
+                if (courseNode && courseNode.nodeData && courseNode.nodeData.courseId) {
+                    courseId = courseNode.nodeData.courseId;
+                } else if (courseNode && courseNode.label) {
+                    // Fallback: try to find courseId from nodeData if available
+                    courseId = courseNode.courseId || courseNode.label || 'Unknown';
+                }
+            }
+            vscode.window.showInformationMessage(`Submit button clicked!\nCourse ID: ${courseId}\nAssignment ID: ${assignmentId}\nAssignment Title: ${assignmentTitle}`);
         }
     }
 

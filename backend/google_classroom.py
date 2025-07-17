@@ -7,10 +7,9 @@ from googleapiclient.discovery import build
 import re
 
 class GoogleClassroomClient:
-    def __init__(self, credentials_path='credentials.json', token_path='token.json'):
+    def __init__(self, credentials_path='credentials.json', info=''):
         self.credentials_path = credentials_path
-        self.token_path = token_path
-        
+        self.info = info
         
         self.SCOPES = [
     "https://www.googleapis.com/auth/classroom.courses.readonly",                  # Read course metadata
@@ -18,15 +17,17 @@ class GoogleClassroomClient:
     "https://www.googleapis.com/auth/classroom.coursework.me"
 ]
 
-
-
-
-
         # Load token if it exists
-        if os.path.exists(self.token_path):
-            self.creds = Credentials.from_authorized_user_file(self.token_path, self.SCOPES)
-            self.creds = Credentials.from_authorized_user_file(self.token_path, self.SCOPES)
-            print("✅ Token loaded.")
+        if self.info and self.info.strip():
+            try:
+                # Parse the JSON string into a dictionary
+                import json
+                info_dict = json.loads(self.info)
+                self.creds = Credentials.from_authorized_user_info(info_dict, self.SCOPES)
+                print("✅ Token loaded.")
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"❌ Invalid token format: {e}")
+                self.creds = None
         else:
             self.creds = None
         try:
@@ -172,13 +173,16 @@ class GoogleClassroomClient:
                     print("self.creds", self.creds)
 
                 # Save the credentials
-                with open(self.token_path, 'w') as token_file:
-                    token_file.write(self.creds.to_json())
+                # with open(self.token_path, 'w') as token_file:
+                #     token_file.write(self.creds.to_json())
 
             self.service = build('classroom', 'v1', credentials=self.creds)
             print("✅ Login successful.")
+            print("self.creds", self.creds)
+            return {"token": self.creds.to_json()}
         except Exception as e:
             print(f"❌ Login failed: {e}")
+            return {"error": "Login failed"}
 
     def get_courses(self, limit=100):
         if not self.service:
@@ -210,14 +214,10 @@ class GoogleClassroomClient:
 
 
     def logout(self):
-        if os.path.exists(self.token_path):
-            os.remove(self.token_path)
-            self.creds = None
-            self.service = None
-            print("✅ Logged out and token removed.")
-        else:
-            print("No token file to delete.")
-
+        self.creds = None
+        self.service = None
+        print("✅ Logout successful.")
+            
 
 # gcr = GoogleClassroomClient()
 # while True:
