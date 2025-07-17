@@ -47,7 +47,6 @@ class GitPushRequest(BaseModel):
     repo_name: str
     course_id: str
     assignment_id: str
-    code_files: Dict[str, str]
 
 def extract_links(text):
     links = re.findall(r'https?://[^\s]+', text)
@@ -56,7 +55,7 @@ def extract_links(text):
 @app.post("/submit/github")
 async def github_submit(req: GitPushRequest):
     try:
-        github = GitHub(req.github_username, req.github_token)
+        github=GitHub(req.github_username, req.github_token)
         success, error = github.create_repo(req.repo_name)
         if not success:
             return {"error": error}
