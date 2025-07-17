@@ -7,7 +7,7 @@ const ChatProvider = require('./chatProvider');
 const QuestionProvider = require('./questionProvider');
 const ClassroomTreeProvider = require('./classroomTreeProvider');
 
-const { handleLoginFlow, handleGenerateHints, handleShowHints, handleGenerateQuestions, handleAddApiKey, backendLogin, backendLogout, fetchGCRData, getUserName } = require('./backendHelpers');
+const { handleLoginFlow, handleGenerateHints, handleShowHints, handleGenerateQuestions, handleAddApiKey, backendLogin, backendLogout, fetchGCRData, getUserName, submitAssignmentToGithub } = require('./backendHelpers');
 const { openFolderInExplorer } = require('./fileHelpers');
 
 /**
@@ -18,6 +18,7 @@ const { openFolderInExplorer } = require('./fileHelpers');
 function transformGCRDataToTree(gcrData) {
     return gcrData.map(course => ({
         label: course.courseName,
+        courseId: course.courseId,
         children: [
             {
                 label: 'Assignments',
@@ -161,6 +162,11 @@ function activate(context) {
             if (chatProvider._webviewView) {
                 chatProvider._webviewView.webview.postMessage({ type: 'clearChat' });
             }
+            // Delete GitHub credentials on logout
+            await context.globalState.update('githubUsername', undefined);
+            await context.globalState.update('githubToken', undefined);
+            context.githubUsername = undefined;
+            context.githubToken = undefined;
 		}),
         vscode.commands.registerCommand('pybuddy.addApiKey', addApiKeyCommand),
 		vscode.commands.registerCommand('pybuddy.showHints', handleShowHints(chatProvider)),
@@ -180,7 +186,52 @@ function activate(context) {
 		}),
 		vscode.commands.registerCommand('pybuddy.helloWorld', () => {
 			vscode.window.showInformationMessage('Hello World from PyBuddy!');
-		})
+		}),
+        vscode.commands.registerCommand('pybuddy.setGithubCredentials', async () => {
+            // Show dropdown menu
+            const choice = await vscode.window.showQuickPick([
+                { label: 'Enter GitHub credentials', value: 'enter' },
+                { label: 'Delete GitHub credentials', value: 'delete' }
+            ], {
+                placeHolder: 'Manage your GitHub credentials',
+                ignoreFocusOut: true
+            });
+            if (!choice) return;
+            if (choice.value === 'enter') {
+                // Prompt for GitHub username
+                const username = await vscode.window.showInputBox({
+                    prompt: 'Enter your GitHub username',
+                    ignoreFocusOut: true,
+                    value: context.globalState.get('githubUsername', '')
+                });
+                if (!username) {
+                    vscode.window.showWarningMessage('GitHub username is required.');
+                    return;
+                }
+                // Prompt for GitHub token (password input)
+                const token = await vscode.window.showInputBox({
+                    prompt: 'Enter your GitHub personal access token',
+                    ignoreFocusOut: true,
+                    password: true,
+                    value: context.globalState.get('githubToken', '')
+                });
+                if (!token) {
+                    vscode.window.showWarningMessage('GitHub token is required.');
+                    return;
+                }
+                await context.globalState.update('githubUsername', username);
+                await context.globalState.update('githubToken', token);
+                context.githubUsername = username;
+                context.githubToken = token;
+                vscode.window.showInformationMessage('GitHub credentials saved!');
+            } else if (choice.value === 'delete') {
+                await context.globalState.update('githubUsername', undefined);
+                await context.globalState.update('githubToken', undefined);
+                context.githubUsername = undefined;
+                context.githubToken = undefined;
+                vscode.window.showInformationMessage('GitHub credentials deleted.');
+            }
+        }),
         // vscode.commands.registerCommand('pybuddy.showAssignmentDescription', (node) => {
         //     if (questionProvider && questionProvider._webviewView && node && node.label) {
         //         questionProvider._webviewView.webview.currentAssignmentLabel = node.label;
@@ -331,7 +382,7 @@ function activate(context) {
     );
 
     // Register the onDidReceiveMessage handler ONCE
-    function handleAssignmentWebviewMessage(msg) {
+    async function handleAssignmentWebviewMessage(msg) {
         if (msg.type === 'startAssignment' && currentAssignmentNode) {
             // Create the folder inside the workspace root (parallel to backend)
             const workspaceRoot = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath;
@@ -378,7 +429,74 @@ function activate(context) {
             }
         }
         if (msg.type === 'submitAssignment') {
-            vscode.window.showInformationMessage('Submit button clicked');
+            let courseId = 'Unknown';
+            let assignmentId = 'Unknown';
+            let assignmentTitle = 'Unknown';
+            if (currentAssignmentNode) {
+                assignmentId = currentAssignmentNode.assignmentId || 'Unknown';
+                assignmentTitle = currentAssignmentNode.label || 'Unknown';
+                // Traverse up to find the course node
+                let courseNode = currentAssignmentNode.parent && currentAssignmentNode.parent.parent;
+                if (courseNode && courseNode.nodeData && courseNode.nodeData.courseId) {
+                    courseId = courseNode.nodeData.courseId;
+                } else if (courseNode && courseNode.label) {
+                    // Fallback: try to find courseId from nodeData if available
+                    courseId = courseNode.courseId || courseNode.label || 'Unknown';
+                }
+            }
+            const githubUsername = context.githubUsername || context.globalState.get('githubUsername', '');
+            const githubToken = context.githubToken || context.globalState.get('githubToken', '');
+            if (!githubUsername || !githubToken) {
+                vscode.window.showErrorMessage('GitHub username or token is not set. Please enter your GitHub credentials.');
+                vscode.commands.executeCommand('pybuddy.setGithubCredentials');
+                return;
+            }
+            // Prompt for repo name
+            const repoName = await vscode.window.showInputBox({
+                prompt: 'Enter the GitHub repository name to push to',
+                ignoreFocusOut: true
+            });
+            if (!repoName) {
+                vscode.window.showWarningMessage('Repository name is required.');
+                return;
+            }
+            // Collect all code files in the assignment folder
+            let codeFiles = {};
+            if (currentAssignmentNode) {
+                let courseName = 'UnknownCourse';
+                if (currentAssignmentNode.parent && currentAssignmentNode.parent.parent) {
+                    courseName = currentAssignmentNode.parent.parent.label;
+                } else if (currentAssignmentNode.courseName) {
+                    courseName = currentAssignmentNode.courseName;
+                }
+                const safeCourseName = courseName.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/ +/g, '_');
+                const safeAssignmentName = currentAssignmentNode.label.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/ +/g, '_');
+                const workspaceRoot = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath;
+                const assignmentFolder = path.join(workspaceRoot, safeCourseName, safeAssignmentName);
+                if (fs.existsSync(assignmentFolder)) {
+                    const files = fs.readdirSync(assignmentFolder);
+                    for (const file of files) {
+                        const filePath = path.join(assignmentFolder, file);
+                        if (fs.statSync(filePath).isFile()) {
+                            codeFiles[file] = fs.readFileSync(filePath, 'utf8');
+                        }
+                    }
+                }
+            }
+            // Call backend API
+            const result = await submitAssignmentToGithub({
+                github_username: githubUsername,
+                github_token: githubToken,
+                repo_name: repoName,
+                course_id: courseId,
+                assignment_id: assignmentId,
+                code_files: codeFiles
+            });
+            if (result.github_link) {
+                vscode.window.showInformationMessage(`Assignment submitted! GitHub link: ${result.github_link}`);
+            } else {
+                vscode.window.showErrorMessage(`Failed to submit assignment: ${result.error || 'Unknown error'}`);
+            }
         }
     }
 
@@ -449,12 +567,18 @@ function activate(context) {
                 const mainPyUri = vscode.Uri.file(mainPyPath);
                 await vscode.window.showTextDocument(mainPyUri);
             } else {
-                vscode.window.showWarningMessage('main.py for this assignment does not exist.');
+                vscode.window.showWarningMessage("You haven't started this assignment yet.");
             }
             // Also show the question panel for this assignment
             vscode.commands.executeCommand('pybuddy.showAssignmentDescription', assignmentNode);
         })
     );
+
+    // On login, load GitHub credentials if they exist
+    const githubUsername = context.globalState.get('githubUsername', '');
+    const githubToken = context.globalState.get('githubToken', '');
+    context.githubUsername = githubUsername;
+    context.githubToken = githubToken;
 }
 
 module.exports = { activate };

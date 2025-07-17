@@ -58,6 +58,11 @@
       "command": "pybuddy.preprocessFiles",
       "title": "Preprocess Files",
       "icon": "$(book)"
+    },
+    {
+      "command": "pybuddy.setGithubCredentials",
+      "title": "Set GitHub Credentials",
+      "icon": "$(mark-github)"
     }],
     "viewsContainers": {
       "activitybar": [
@@ -102,6 +107,12 @@
           "command": "pybuddy.login",
           "when": "!pybuddyLoggedIn && view == pybuddy-classroom-tree",
           "group": "navigation"
+        },
+        {
+          "command": "pybuddy.setGithubCredentials",
+          "when": "pybuddyLoggedIn && view == pybuddy-classroom-tree",
+          "group": "navigation@0",
+          "icon": "$(mark-github)"
         },
         {
           "command": "pybuddy.refreshGCRData",

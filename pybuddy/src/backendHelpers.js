@@ -342,6 +342,28 @@ async function fetchGCRData() {
     }
 }
 
+/**
+ * Submits assignment code files to the backend for GitHub push.
+ * @param {Object} params - { github_username, github_token, repo_name, course_id, assignment_id, code_files }
+ * @returns {Promise<Object>} - { github_link } or { error }
+ */
+async function submitAssignmentToGithub(params) {
+    try {
+        const response = await fetch(`${backend_url}/submit/github`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params)
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || `Backend returned status ${response.status}`);
+        }
+        return data;
+    } catch (error) {
+        return { error: error.message };
+    }
+}
+
 // Fetch the username from the backend
 async function getUserName() {
     try {
@@ -365,5 +387,6 @@ module.exports = {
     backendLogin,
     backendLogout,
     fetchGCRData,
-    getUserName
+    getUserName,
+    submitAssignmentToGithub
 };
