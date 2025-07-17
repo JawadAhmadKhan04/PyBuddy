@@ -102,12 +102,9 @@ async function backendLogin() {
     try {
         const response = await fetch(`${backend_url}/login`, { method: 'POST' });
         const data = await response.json();
-		// console.log(data.token);
-        vscode.window.showInformationMessage(data.token || 'Logged in!');
-        return data; // Return the response data so frontend can access token
+        vscode.window.showInformationMessage(data.message || 'Logged in!');
     } catch (error) {
         vscode.window.showErrorMessage('Login failed: ' + error.message);
-        return null;
     }
 }
 
@@ -359,30 +356,6 @@ async function getUserName() {
     return 'user';
 }
 
-async function checkStartupAuth(tokenContent) {
-    try {
-        const response = await fetch(`${backend_url}/starting_up`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ info: tokenContent })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Backend returned status ${response.status}`);
-        }
-        
-        const data = await response.json();
-        return {
-            authenticated: data.authenticated || false,
-            user_name: data.user_name,
-            error: data.error,
-            message: data.message
-        };
-    } catch (error) {
-        throw new Error(`Authentication check failed: ${error.message}`);
-    }
-}
-
 module.exports = {
 	handleLoginFlow,
 	handleGenerateHints,
@@ -392,6 +365,5 @@ module.exports = {
     backendLogin,
     backendLogout,
     fetchGCRData,
-    getUserName,
-    checkStartupAuth
+    getUserName
 };

@@ -19,6 +19,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+hinter = FileBasedHints()
+gcr = GoogleClassroomClient()
+
 class QuestionRequest(BaseModel):
     file_path:str
 
@@ -44,34 +47,10 @@ class GitPushRequest(BaseModel):
     repo_name: str
     course_id: str
     assignment_id: str
-    
-class StartingUpRequest(BaseModel):
-    info: str = ""
 
 def extract_links(text):
     links = re.findall(r'https?://[^\s]+', text)
     return "\n".join(links)
-
-@app.post("/starting_up")
-async def starting_up(request: StartingUpRequest):
-    global hinter
-    global gcr
-    hinter = FileBasedHints()
-    gcr = GoogleClassroomClient(info=request.info)
-    
-    # Test if the credentials are valid
-    try:
-        if gcr.service and gcr.creds and gcr.creds.valid:
-            # Try to get user name to verify authentication
-            user_name = gcr.get_user_name()
-            if user_name:
-                return {"message": "Starting up...", "authenticated": True, "user_name": user_name}
-            else:
-                return {"message": "Starting up...", "authenticated": False, "error": "Invalid credentials"}
-        else:
-            return {"message": "Starting up...", "authenticated": False, "error": "No valid credentials"}
-    except Exception as e:
-        return {"message": "Starting up...", "authenticated": False, "error": f"Authentication failed: {str(e)}"}
 
 @app.post("/submit/github")
 async def github_submit(req: GitPushRequest):
@@ -232,7 +211,8 @@ def get_entire_code(folder_path: str) -> dict[str, str]:
 
 @app.post("/login")
 async def login():
-    return gcr.login()
+    gcr.login()
+    return {"message": "Logged in successfully"}
 
 @app.post("/get_gcr_data")
 async def get_gcr_data():
