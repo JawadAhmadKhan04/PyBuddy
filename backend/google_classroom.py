@@ -17,11 +17,6 @@ class GoogleClassroomClient:
     "https://www.googleapis.com/auth/classroom.rosters",
     "https://www.googleapis.com/auth/classroom.coursework.me"
 ]
-
-
-
-
-
         # Load token if it exists
         if info and info.strip():
             try:
