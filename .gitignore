@@ -3,3 +3,5 @@ __pycache__/
 pybuddy/node_modules/
 backend/token.json
 backend/credentials.json
+pybuddy/src/credentials.json
+pybuddy/src/token.json

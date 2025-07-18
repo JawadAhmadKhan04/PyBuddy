@@ -8,6 +8,7 @@ from typing import Dict
 from google_classroom import GoogleClassroomClient
 import os
 from git import GitHub
+
 app = FastAPI()
 
 # Add CORS middleware
@@ -20,7 +21,7 @@ app.add_middleware(
 )
 
 hinter = FileBasedHints()
-gcr = GoogleClassroomClient()
+# gcr = GoogleClassroomClient()
 
 class QuestionRequest(BaseModel):
     file_path:str
@@ -33,13 +34,17 @@ class PreprocessingRequest(BaseModel):
 class GenerateHintsRequest(BaseModel):
     question_data: str
     code_dict: Dict[str, str]
+    api_key: str
 
 class AddApiKeyRequest(BaseModel):
     api_key: str
 
 # class ChatRequest(BaseModel):
 #     message: str
-from pydantic import BaseModel
+
+class StartingUpRequest(BaseModel):
+    info: str
+
 
 class GitPushRequest(BaseModel):
     github_username: str
@@ -52,6 +57,14 @@ class GitPushRequest(BaseModel):
 def extract_links(text):
     links = re.findall(r'https?://[^\s]+', text)
     return "\n".join(links)
+
+# @app.post("/starting_up")
+# async def starting_up(request: StartingUpRequest):
+#     # global hinter
+#     # global gcr
+#     # hinter = FileBasedHints()
+#     gcr = GoogleClassroomClient(info=request.info)
+#     return {"message": "Starting up..."}
 
 @app.post("/submit/github")
 async def github_submit(req: GitPushRequest):
@@ -102,11 +115,11 @@ async def get_root(request: PreprocessingRequest):
         print(f"Error in preprocessing: {str(e)}")
         return {"error": f"Preprocessing failed: {str(e)}"}
 
-@app.post("/add_api_key")
-async def add_api_key(request: AddApiKeyRequest):
-    api_key = request.api_key
-    hinter.add_api_key(api_key)
-    return {"message": "API key added successfully"}
+# @app.post("/add_api_key")
+# async def add_api_key(request: AddApiKeyRequest):
+#     api_key = request.api_key
+#     hinter.add_api_key(api_key)
+#     return {"message": "API key added successfully"}
 
 @app.post("/get_question")
 async def get_question(request: QuestionRequest):
@@ -115,7 +128,8 @@ async def get_question(request: QuestionRequest):
     return {"question_text": question_text, "instructions": instructions, "links": extract_links(question_text)}
 
 @app.post("/get_user_name")
-async def get_user_name():
+async def get_user_name(request: StartingUpRequest):
+    gcr = GoogleClassroomClient(info=request.info)
     return {"user_name": gcr.get_user_name()}
 
 @app.post("/generate_hints")
@@ -125,7 +139,7 @@ async def generate_hints(request: GenerateHintsRequest):
     question_data = request.question_data
     # You may need to extract parent_of_question_folder and question_number from the code_dict or request if needed
     # For now, just pass code_dict to hinter.get_general_hints
-    result = hinter.get_general_hints(code_dict, question_data)
+    result = hinter.get_general_hints(code_dict, question_data, request.api_key)
     
     # Check if the result contains an error
     if result.get("error"):
@@ -208,13 +222,15 @@ def get_entire_code(folder_path: str) -> dict[str, str]:
 #         return {"error": f"Chat failed: {str(e)}"}
 
 
-@app.post("/login")
-async def login():
-    gcr.login()
-    return {"message": "Logged in successfully"}
+# @app.post("/login")
+# async def login(request: StartingUpRequest):
+#     gcr = GoogleClassroomClient(info=request.info)
+#     gcr.login()
+#     return {"message": "Logged in successfully"}
 
 @app.post("/get_gcr_data")
-async def get_gcr_data():
+async def get_gcr_data(request: StartingUpRequest):
+    gcr = GoogleClassroomClient(info=request.info)
     gcr_result = gcr.get_gcr_data()
     
     if isinstance(gcr_result, dict) and "error" in gcr_result:
@@ -224,7 +240,8 @@ async def get_gcr_data():
 
 
 @app.post("/logout")
-async def logout():
+async def logout(request: StartingUpRequest):
+    gcr = GoogleClassroomClient(info=request.info)
     gcr.logout()
     return {"message": "Logged out successfully"}
 

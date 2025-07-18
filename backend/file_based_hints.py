@@ -1,8 +1,8 @@
 import os
-from database import Database
+# from database import Database
 from pydantic import BaseModel
 import os
-from database import Database
+# from database import Database
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -29,30 +29,30 @@ class FileBasedHints:
         Initializes the FileBasedHints class.
 
         """
-        self.db = Database()
-        api_key = self.db.get_api_key()
-        print("api_key:", api_key)
-        if api_key:
-            os.environ["GEMINI_API_KEY"] = api_key.decode("utf-8")
-        self.model = "gemini-2.5-flash"
-        self.llm = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        # self.db = Database()
+        # api_key = self.db.get_api_key()
+        # print("api_key:", api_key)
+        # if api_key:
+        #     os.environ["GEMINI_API_KEY"] = api_key.decode("utf-8")
+        # self.model = "gemini-2.5-flash"
+        # self.llm = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
         
-    def create_files(self, folder_name: str, total_questions: int) -> None:
-        cwd = os.getcwd()
-        parent_dir = os.path.dirname(cwd)
+    # def create_files(self, folder_name: str, total_questions: int) -> None:
+    #     cwd = os.getcwd()
+    #     parent_dir = os.path.dirname(cwd)
 
-        folder_path = os.path.join(parent_dir, folder_name)
-        os.makedirs(folder_path, exist_ok=True)
-        print("Current Working Directory:", folder_path)
-        for i in range(total_questions):
-            folder_name = f"question_{i+1}"
-            subfolder_path = os.path.join(folder_path, folder_name)
+    #     folder_path = os.path.join(parent_dir, folder_name)
+    #     os.makedirs(folder_path, exist_ok=True)
+    #     print("Current Working Directory:", folder_path)
+    #     for i in range(total_questions):
+    #         folder_name = f"question_{i+1}"
+    #         subfolder_path = os.path.join(folder_path, folder_name)
 
-            os.makedirs(subfolder_path, exist_ok=True)  # Create subfolder if it doesn't exist
+    #         os.makedirs(subfolder_path, exist_ok=True)  # Create subfolder if it doesn't exist
 
-            file_path = os.path.join(subfolder_path, f"{folder_name}.py")
-            with open(file_path, "w") as f:
-                f.write(f"# This is question {i+1}")
+    #         file_path = os.path.join(subfolder_path, f"{folder_name}.py")
+    #         with open(file_path, "w") as f:
+    #             f.write(f"# This is question {i+1}")
 
 
     def execute_preprocessing(self, file_path: str, folder_name: str = "default", auto_file_creation: bool = False) -> dict[int, str]:
@@ -159,9 +159,9 @@ class FileBasedHints:
         self.llm = genai.Client(api_key=api_key)
         # print(os.getenv("GEMINI_API_KEY"))
 
-                  
 
-    def get_general_hints(self, present_code: dict[str, str], question_data: str) -> dict:
+
+    def get_general_hints(self, present_code: dict[str, str], question_data: str, api_key: str) -> dict:
         """
         Generates hints for the file using the language model.
         
@@ -171,7 +171,7 @@ class FileBasedHints:
             question_no (int): The number of the question to generate hints for.
         """
         # print(f"Generating hints for question number: {question_no}")
-        
+
         try:
             # question_text, instructions = self.get_question_text(folder_name, question_no)
             # if not question_text:
@@ -235,6 +235,11 @@ If nothing further is needed, return a hint_text that confirms the solution is c
 
 Let's take it step by step."""
 
+
+    
+            os.environ["GEMINI_API_KEY"] = api_key
+            self.model = "gemini-2.5-flash"
+            self.llm = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
             response = self.llm.models.generate_content(
                 model=self.model,
                 contents=[prompt],

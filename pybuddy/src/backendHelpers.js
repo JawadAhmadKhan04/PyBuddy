@@ -3,6 +3,9 @@ const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
 const { openFolderInExplorer } = require('./fileHelpers');
+const { globalTokenJson } = require('./activate');
+const { google } = require('googleapis');
+const { OAuth2Client } = require('google-auth-library');
 
 const backend_url = "http://127.0.0.1:8000";
 
@@ -32,20 +35,20 @@ function handleAddApiKey(context) {
             context.globalState.update('pybuddy.geminiApiKey', apiKey);
 
             // Send the API key to the backend
-            try {
-                const response = await fetch(`${backend_url}/add_api_key`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ api_key: apiKey })
-                });
-                if (!response.ok) {
-                    throw new Error(`Backend returned status ${response.status}`);
-                }
-                const data = await response.json();
-                vscode.window.showInformationMessage(data.message || 'API key sent to backend successfully!');
-            } catch (error) {
-                vscode.window.showErrorMessage('Failed to send API key to backend: ' + error.message);
-            }
+            // try {
+            //     const response = await fetch(`${backend_url}/add_api_key`, {
+            //         method: 'POST',
+            //         headers: { 'Content-Type': 'application/json' },
+            //         body: JSON.stringify({ api_key: apiKey })
+            //     });
+            //     if (!response.ok) {
+            //         throw new Error(`Backend returned status ${response.status}`);
+            //     }
+            //     const data = await response.json();
+            //     vscode.window.showInformationMessage(data.message || 'API key sent to backend successfully!');
+            // } catch (error) {
+            //     vscode.window.showErrorMessage('Failed to send API key to backend: ' + error.message);
+            // }
         }
     }
 }
@@ -98,21 +101,29 @@ async function handleLoginFlow() {
     );
 }
 
-async function backendLogin() {
+async function backendLogout(tokenJson = globalTokenJson) {
     try {
-        const response = await fetch(`${backend_url}/login`, { method: 'POST' });
-        const data = await response.json();
-        vscode.window.showInformationMessage(data.message || 'Logged in!');
-    } catch (error) {
-        vscode.window.showErrorMessage('Login failed: ' + error.message);
-    }
-}
-
-async function backendLogout() {
-    try {
-        const response = await fetch(`${backend_url}/logout`, { method: 'POST' });
+        const response = await fetch(`${backend_url}/logout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ info: tokenJson })
+        });
         const data = await response.json();
         vscode.window.showInformationMessage(data.message || 'Logged out!');
+        // Delete token.json after successful logout
+        try {
+            const tokenPath = path.join(__dirname, 'token.json');
+            if (fs.existsSync(tokenPath)) {
+                fs.unlinkSync(tokenPath);
+                console.log('token.json deleted after logout');
+            }
+            // Clear the global variable as well
+            const activate = require('./activate');
+            activate.globalTokenJson = '';
+        } catch (deleteErr) {
+            console.warn('Failed to delete token.json after logout:', deleteErr.message);
+            vscode.window.showWarningMessage('Failed to delete token.json after logout.');
+        }
     } catch (error) {
         vscode.window.showErrorMessage('Logout failed: ' + error.message);
     }
@@ -155,7 +166,7 @@ function handleShowHints(chatProvider) {
 	};
 }
 
-function handleGenerateHints(chatProvider) {
+function handleGenerateHints(chatProvider, context) {
 	return async function (description = null) {
 		const activeEditor = vscode.window.activeTextEditor;
 		if (activeEditor) {
@@ -185,7 +196,8 @@ function handleGenerateHints(chatProvider) {
 						console.log(description);
 						const requestBody = {
 							code_dict: codeDict,
-							question_data: description || ''
+							question_data: description || '',
+                            api_key: context.globalState.get('pybuddy.geminiApiKey')
 						};
 						console.log(requestBody);
 						const response = await fetch(endpoint, {
@@ -328,9 +340,13 @@ function handleGenerateQuestions(questionProvider) {
  * Fetches Google Classroom data from the backend.
  * @returns {Promise<Array>} The gcr_data array from the backend, or [] on error.
  */
-async function fetchGCRData() {
+async function fetchGCRData(tokenJson = globalTokenJson) {
     try {
-        const response = await fetch(`${backend_url}/get_gcr_data`, { method: 'POST' });
+        const response = await fetch(`${backend_url}/get_gcr_data`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ info: tokenJson })
+        });
         if (!response.ok) {
             throw new Error(`Backend returned status ${response.status}`);
         }
@@ -365,9 +381,13 @@ async function submitAssignmentToGithub(params) {
 }
 
 // Fetch the username from the backend
-async function getUserName() {
+async function getUserName(tokenJson = globalTokenJson) {
     try {
-        const response = await fetch(`${backend_url}/get_user_name`, { method: 'POST' });
+        const response = await fetch(`${backend_url}/get_user_name`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ info: tokenJson })
+        });
         if (response.ok) {
             const data = await response.json();
             return data.user_name;
@@ -378,15 +398,67 @@ async function getUserName() {
     return 'user';
 }
 
+async function loginWithGoogle() {
+    // These values should match your credentials.json
+    const CLIENT_ID = '965979891505-kqmcnlo7g2s70jjvo28t85gsm2tv04m6.apps.googleusercontent.com';
+    const CLIENT_SECRET = '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';
+    const REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'; // Force manual code flow
+    const SCOPES = [
+        'https://www.googleapis.com/auth/classroom.courses.readonly',
+        'https://www.googleapis.com/auth/classroom.rosters',
+        'https://www.googleapis.com/auth/classroom.coursework.me'
+    ];
+    const TOKEN_PATH = path.join(__dirname, 'token.json');
+    const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
+
+    let credentials;
+    if (fs.existsSync(CREDENTIALS_PATH)) {
+        credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
+    } else {
+        throw new Error('credentials.json not found.');
+    }
+    const { client_id, client_secret } = credentials.installed || credentials.web || { client_id: CLIENT_ID, client_secret: CLIENT_SECRET };
+    // Always use the manual redirect URI
+    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);
+
+    // Check if token already exists
+    if (fs.existsSync(TOKEN_PATH)) {
+        const token = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
+        oAuth2Client.setCredentials(token);
+        return token;
+    }
+
+    // Generate the auth URL
+    const authUrl = oAuth2Client.generateAuthUrl({
+        access_type: 'offline',
+        scope: SCOPES,
+        prompt: 'consent',
+    });
+    vscode.env.openExternal(vscode.Uri.parse(authUrl));
+    const code = await vscode.window.showInputBox({
+        prompt: 'Enter the code from Google after login',
+        ignoreFocusOut: true
+    });
+    if (!code) throw new Error('No code entered.');
+    const { tokens } = await oAuth2Client.getToken(code);
+    oAuth2Client.setCredentials(tokens);
+    // Add client_id and client_secret to the token object
+    tokens.client_id = client_id;
+    tokens.client_secret = client_secret;
+    fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
+	console.log(tokens);
+    return tokens;
+}
+
 module.exports = {
 	handleLoginFlow,
 	handleGenerateHints,
 	handleShowHints,
 	handleGenerateQuestions,
 	handleAddApiKey,
-    backendLogin,
     backendLogout,
     fetchGCRData,
     getUserName,
-    submitAssignmentToGithub
+    submitAssignmentToGithub,
+    loginWithGoogle
 };
