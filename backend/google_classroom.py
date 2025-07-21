@@ -36,6 +36,83 @@ class GoogleClassroomClient:
             print(f"❌ Error building service: {e}")
             self.service = None
             
+    def submit_to_classroom(self, course_id: str, assignment_id: str, link: str) -> dict:
+        try:
+            # Step 1: Get student submission ID
+            submissions = self.service.courses().courseWork().studentSubmissions().list(
+                courseId=course_id,
+                courseWorkId=assignment_id,
+                userId='me'
+            ).execute()
+
+            if 'studentSubmissions' not in submissions or not submissions['studentSubmissions']:
+                return {"success": False, "error": "No submission found for this user."}
+
+            submission = submissions['studentSubmissions'][0]
+            submission_id = submission['id']
+            print("Using submission_id:", submission_id)
+
+            # If already turned in, unsubmit first
+            if submission['state'] == 'TURNED_IN':
+                print("Submission already turned in. Reclaiming (unsubmitting) first...")
+                self.service.courses().courseWork().studentSubmissions().reclaim(
+                    courseId=course_id,
+                    courseWorkId=assignment_id,
+                    id=submission_id
+                ).execute()
+                print("Submission reclaimed.")
+                # Remove all existing attachments
+                existing_attachments = submission.get('assignmentSubmission', {}).get('attachments', [])
+                if existing_attachments:
+                    remove_body = {
+                        "removeAttachments": [
+                            {k: v for k, v in att.items()} for att in existing_attachments
+                        ]
+                    }
+                    print("Removing attachments:", remove_body)
+                    self.service.courses().courseWork().studentSubmissions().modifyAttachments(
+                        courseId=course_id,
+                        courseWorkId=assignment_id,
+                        id=submission_id,
+                        body=remove_body
+                    ).execute()
+                    print("Existing attachments removed.")
+
+            # Step 2: Modify attachments (add the link)
+            modify_body = {
+                "addAttachments": [
+                    {
+                        "link": {
+                            "url": link
+                        }
+                    }
+                ]
+            }
+
+            result = self.service.courses().courseWork().studentSubmissions().modifyAttachments(
+                courseId=course_id,
+                courseWorkId=assignment_id,
+                id=submission_id,
+                body=modify_body
+            ).execute()
+
+            print("modifyAttachments result:", result)
+
+            # Step 3: Turn in the submission
+            self.service.courses().courseWork().studentSubmissions().turnIn(
+                courseId=course_id,
+                courseWorkId=assignment_id,
+                id=submission_id
+            ).execute()
+
+            print("✅ Submission turned in successfully.")
+            return {"success": True, "message": "Submission turned in successfully."}
+
+        except Exception as e:
+            print("Exception in submit_to_classroom:", repr(e))
+            return {"success": False, "error": f"Classroom submission failed: {str(e)}"}
+
+            
     def get_gcr_data(self):
         course_result = self.get_courses()
 

@@ -13,6 +13,8 @@ const backend_url = "http://127.0.0.1:8000";
 let fileHints = {}; // { [filePath]: [hintMessage, ...] }
 let currentFilePath = null;
 
+
+
 function handleAddApiKey(context) {
     return async () => {
         const apiKey = await vscode.window.showInputBox({
@@ -32,23 +34,23 @@ function handleAddApiKey(context) {
 
         if (apiKey) {
             // Store the API key in global state for persistence
-            context.globalState.update('pybuddy.geminiApiKey', apiKey);
+            // context.globalState.update('pybuddy.geminiApiKey', apiKey);
 
             // Send the API key to the backend
-            // try {
-            //     const response = await fetch(`${backend_url}/add_api_key`, {
-            //         method: 'POST',
-            //         headers: { 'Content-Type': 'application/json' },
-            //         body: JSON.stringify({ api_key: apiKey })
-            //     });
-            //     if (!response.ok) {
-            //         throw new Error(`Backend returned status ${response.status}`);
-            //     }
-            //     const data = await response.json();
-            //     vscode.window.showInformationMessage(data.message || 'API key sent to backend successfully!');
-            // } catch (error) {
-            //     vscode.window.showErrorMessage('Failed to send API key to backend: ' + error.message);
-            // }
+            try {
+                const response = await fetch(`${backend_url}/add_api_key`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ api_key: apiKey, username: context.globalState.get('pybuddy.username') })
+                });
+                if (!response.ok) {
+                    throw new Error(`Backend returned status ${response.status}`);
+                }
+                const data = await response.json();
+                vscode.window.showInformationMessage(data.message || 'API key sent to backend successfully!');
+            } catch (error) {
+                vscode.window.showErrorMessage('Failed to send API key to backend: ' + error.message);
+            }
         }
     }
 }
@@ -197,7 +199,7 @@ function handleGenerateHints(chatProvider, context) {
 						const requestBody = {
 							code_dict: codeDict,
 							question_data: description || '',
-                            api_key: context.globalState.get('pybuddy.geminiApiKey')
+							username: context.globalState.get('pybuddy.username', '')
 						};
 						console.log(requestBody);
 						const response = await fetch(endpoint, {
@@ -380,6 +382,56 @@ async function submitAssignmentToGithub(params) {
     }
 }
 
+/**
+ * Sends GitHub credentials to the backend to be saved in the database.
+ * @param {Object} params - { github_username, github_token, username }
+ * @returns {Promise<Object>} - { message } or { error }
+ */
+async function saveGithubCredentialsToBackend(params) {
+    try {
+        // Ensure correct keys for backend
+        const body = {
+            username: params.username,
+            github_name: params.github_name || params.github_username || '',
+            github_token: params.github_token || ''
+        };
+        const response = await fetch(`${backend_url}/add_github`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || `Backend returned status ${response.status}`);
+        }
+        return data;
+    } catch (error) {
+        return { error: error.message };
+    }
+}
+
+/**
+ * Deletes GitHub credentials for a user in the backend.
+ * @param {string} username
+ * @returns {Promise<Object>} - { message } or { error }
+ */
+async function deleteGithubCredentialsFromBackend(username) {
+    try {
+        const response = await fetch(`${backend_url}/delete_github`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || `Backend returned status ${response.status}`);
+        }
+        return data;
+    } catch (error) {
+        return { error: error.message };
+    }
+}
+
 // Fetch the username from the backend
 async function getUserName(tokenJson = globalTokenJson) {
     try {
@@ -460,5 +512,7 @@ module.exports = {
     fetchGCRData,
     getUserName,
     submitAssignmentToGithub,
-    loginWithGoogle
+    loginWithGoogle,
+    saveGithubCredentialsToBackend,
+    deleteGithubCredentialsFromBackend
 };

@@ -21,7 +21,7 @@ class QuestionInterface {
         });
     }
 
-    addQuestion(content, isQuestion = false, showStart = true) {
+    addQuestion(content, isQuestion = false, showStart = true, canStartOrSubmit = true) {
         // Clear everything including welcome message
         this.questionMessages.innerHTML = '';
         
@@ -47,7 +47,7 @@ class QuestionInterface {
         messageContent.innerHTML = formattedContent;
         
         // Add Start/Submit button for assignment descriptions only
-        if (!isQuestion) {
+        if (!isQuestion && canStartOrSubmit !== false) {
             const buttonContainer = document.createElement('div');
             buttonContainer.style.marginTop = '16px';
             buttonContainer.id = 'assignment-action-btn-container';
@@ -142,7 +142,8 @@ class QuestionInterface {
                 break;
             case 'showAssignmentDescription':
                 // If message.showStart is defined, use it, otherwise default to true
-                this.addQuestion(message.content, false, message.showStart !== false);
+                // Pass canStartOrSubmit to addQuestion
+                this.addQuestion(message.content, false, message.showStart !== false, message.canStartOrSubmit);
                 break;
             case 'swapToSubmitButton':
                 this.swapToSubmitButton();

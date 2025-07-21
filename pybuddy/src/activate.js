@@ -7,7 +7,7 @@ const ChatProvider = require('./chatProvider');
 const QuestionProvider = require('./questionProvider');
 const ClassroomTreeProvider = require('./classroomTreeProvider');
 
-const { handleLoginFlow, handleGenerateHints, handleShowHints, handleGenerateQuestions, handleAddApiKey, backendLogout, fetchGCRData, getUserName, submitAssignmentToGithub, loginWithGoogle } = require('./backendHelpers');
+const { handleLoginFlow, handleGenerateHints, handleShowHints, handleGenerateQuestions, handleAddApiKey, backendLogout, fetchGCRData, getUserName, submitAssignmentToGithub, loginWithGoogle, saveGithubCredentialsToBackend, deleteGithubCredentialsFromBackend } = require('./backendHelpers');
 const { openFolderInExplorer } = require('./fileHelpers');
 
 /**
@@ -135,12 +135,13 @@ function activate(context) {
             classroomTreeProvider.setLoggedIn(true);
             classroomTreeProvider.setLoading(true);
             // Fetch username from backendHelpers
-            let userId = 'user';
+            let userId = '';
             try {
                 userId = await getUserName(globalTokenJson);
             } catch (err) {
                 vscode.window.showWarningMessage('Could not fetch user name, using default folder.');
             }
+            context.globalState.update('pybuddy.username', userId);
             const safeUserId = userId.replace(/[^a-zA-Z0-9-_]/g, '_');
             const desktopPath = path.join(os.homedir(), 'Desktop');
             const gclFolder = path.join(desktopPath, `GoogleClassroomLocal_${safeUserId}`);
@@ -178,6 +179,7 @@ function activate(context) {
 			vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', false);
             classroomTreeProvider.setLoggedIn(false);
             classroomTreeProvider.setData([]);
+            context.globalState.update('pybuddy.username', '');
             // Reset the question and hints panels to default
             if (questionProvider._webviewView) {
                 questionProvider._webviewView.webview.postMessage({ type: 'clearQuestions' });
@@ -224,8 +226,7 @@ function activate(context) {
                 // Prompt for GitHub username
                 const username = await vscode.window.showInputBox({
                     prompt: 'Enter your GitHub username',
-                    ignoreFocusOut: true,
-                    value: context.globalState.get('githubUsername', '')
+                    ignoreFocusOut: true
                 });
                 if (!username) {
                     vscode.window.showWarningMessage('GitHub username is required.');
@@ -235,24 +236,40 @@ function activate(context) {
                 const token = await vscode.window.showInputBox({
                     prompt: 'Enter your GitHub personal access token',
                     ignoreFocusOut: true,
-                    password: true,
-                    value: context.globalState.get('githubToken', '')
+                    password: true
                 });
                 if (!token) {
                     vscode.window.showWarningMessage('GitHub token is required.');
                     return;
                 }
-                await context.globalState.update('githubUsername', username);
-                await context.globalState.update('githubToken', token);
-                context.githubUsername = username;
-                context.githubToken = token;
                 vscode.window.showInformationMessage('GitHub credentials saved!');
+                // Send credentials to backend as well
+                const pybuddyUsername = context.globalState.get('pybuddy.username', '');
+                const result = await saveGithubCredentialsToBackend({
+                    username: pybuddyUsername,
+                    github_name: username,
+                    github_token: token
+                });
+                if (result && result.message) {
+                    vscode.window.showInformationMessage(result.message);
+                } else if (result && result.error) {
+                    vscode.window.showErrorMessage('Failed to save GitHub credentials to backend: ' + result.error);
+                }
             } else if (choice.value === 'delete') {
-                await context.globalState.update('githubUsername', undefined);
-                await context.globalState.update('githubToken', undefined);
-                context.githubUsername = undefined;
-                context.githubToken = undefined;
-                vscode.window.showInformationMessage('GitHub credentials deleted.');
+                // Call backend to delete GitHub credentials
+                const pybuddyUsername = context.globalState.get('pybuddy.username', '');
+                if (!pybuddyUsername) {
+                    vscode.window.showWarningMessage('No username found. Please log in first.');
+                    return;
+                }
+                const result = await deleteGithubCredentialsFromBackend(pybuddyUsername);
+                if (result && result.message) {
+                    vscode.window.showInformationMessage(result.message);
+                } else if (result && result.error) {
+                    vscode.window.showErrorMessage('Failed to delete GitHub credentials: ' + result.error);
+                } else {
+                    vscode.window.showErrorMessage('Failed to delete GitHub credentials.');
+                }
             }
         }),
         // vscode.commands.registerCommand('pybuddy.showAssignmentDescription', (node) => {
@@ -362,6 +379,7 @@ function activate(context) {
                 }
                 // Check if the assignment folder/file exists
                 let showStart = true;
+                let canStartOrSubmit = true;
                 try {
                     let courseName = 'UnknownCourse';
                     if (node.parent && node.parent.parent) {
@@ -381,6 +399,9 @@ function activate(context) {
                     if (fs.existsSync(mainPyPath)) {
                         showStart = false;
                     }
+                    if (node.submissionState === 'TURNED_IN') {
+                        canStartOrSubmit = false;
+                    }
                 } catch (err) {
                     // If any error, default to showStart = true
                 }
@@ -388,7 +409,8 @@ function activate(context) {
                     questionProvider._webviewView.webview.postMessage({
                         type: 'showAssignmentDescription',
                         content: content,
-                        showStart: showStart
+                        showStart: showStart,
+                        canStartOrSubmit: canStartOrSubmit
                     });
                 } else {
                     vscode.window.showInformationMessage(node.description);
@@ -485,13 +507,6 @@ function activate(context) {
                     courseId = courseNode.courseId || courseNode.label || 'Unknown';
                 }
             }
-            const githubUsername = context.githubUsername || context.globalState.get('githubUsername', '');
-            const githubToken = context.githubToken || context.globalState.get('githubToken', '');
-            if (!githubUsername || !githubToken) {
-                vscode.window.showErrorMessage('GitHub username or token is not set. Please enter your GitHub credentials.');
-                vscode.commands.executeCommand('pybuddy.setGithubCredentials');
-                return;
-            }
             // Prompt for repo name
             const repoName = await vscode.window.showInputBox({
                 prompt: 'Enter the GitHub repository name to push to',
@@ -530,16 +545,17 @@ function activate(context) {
                 title: 'Submitting assignment to GitHub...',
                 cancellable: false
             }, async (progress) => {
+                const username = context.globalState.get('pybuddy.username', '');
                 const result = await submitAssignmentToGithub({
-                    github_username: githubUsername,
-                    github_token: githubToken,
+                    username: username,
                     repo_name: repoName,
                     course_id: courseId,
                     assignment_id: assignmentId,
-                    code_files: codeFiles
+                    code_files: codeFiles,
+                    info: globalTokenJson
                 });
-                if (result.github_link) {
-                    vscode.window.showInformationMessage(`Assignment submitted! GitHub link: ${result.github_link}`);
+                if (result.message) {
+                    vscode.window.showInformationMessage(`Assignment submitted! ${result.message}`);
                     // Automatically refresh GCR data
                     classroomTreeProvider.setLoading(true);
                     const gcrData = await fetchGCRData(globalTokenJson);
@@ -606,12 +622,12 @@ function activate(context) {
             const safeAssignmentName = assignmentNode.label.replace(/[^a-zA-Z0-9-_ ]/g, '').replace(/ +/g, '_');
 
             // Fetch username from backendHelpers
-            let userId = 'user';
-            try {
-                userId = await getUserName(globalTokenJson);
-            } catch (err) {
-                vscode.window.showWarningMessage('Could not fetch user name, using default folder.');
-            }
+            let userId = context.globalState.get('pybuddy.username', '');
+            // try {
+            //     userId = await getUserName(globalTokenJson);
+            // } catch (err) {
+            //     vscode.window.showWarningMessage('Could not fetch user name, using default folder.');
+            // }
             const safeUserId = userId.replace(/[^a-zA-Z0-9-_]/g, '_');
             const desktopPath = path.join(os.homedir(), 'Desktop');
             const gclFolder = path.join(desktopPath, `GoogleClassroomLocal_${safeUserId}`);

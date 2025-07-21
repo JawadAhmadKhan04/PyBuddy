@@ -28,7 +28,8 @@ class GoogleClassroomClient:
             "https://www.googleapis.com/auth/classroom.courses.readonly",
             "https://www.googleapis.com/auth/classroom.rosters.readonly",
             "https://www.googleapis.com/auth/classroom.coursework.me",
-            "https://www.googleapis.com/auth/drive.file"
+            "https://www.googleapis.com/auth/drive.file",
+            "https://www.googleapis.com/auth/classroom.coursework.students"
         ]
         self.creds = self._load_credentials()
         self.service = build('classroom', 'v1', credentials=self.creds) if self.creds else None
@@ -41,68 +42,233 @@ class GoogleClassroomClient:
             return creds
         return None
 
-    def upload_to_drive(self, file_path: str) -> str:
-        try:
-            drive_service = build('drive', 'v3', credentials=self.creds)
-            file_metadata = {'name': os.path.basename(file_path)}
-            media = MediaFileUpload(file_path, mimetype='application/zip')
-            file = drive_service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id'
-            ).execute()
-            return file['id']
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Drive upload failed: {str(e)}")
+    # def upload_to_drive(self, file_path: str) -> str:
+    #     try:
+    #         drive_service = build('drive', 'v3', credentials=self.creds)
+    #         file_metadata = {'name': os.path.basename(file_path)}
+    #         media = MediaFileUpload(file_path, mimetype='application/zip')
+    #         file = drive_service.files().create(
+    #             body=file_metadata,
+    #             media_body=media,
+    #             fields='id'
+    #         ).execute()
+    #         return file['id']
+    #     except Exception as e:
+    #         raise HTTPException(status_code=500, detail=f"Drive upload failed: {str(e)}")
+    
+    def create_assignment(self, course_id: str):
+    # Load credentials (make sure you've done OAuth flow and saved token.json)
+        # creds = Credentials.from_authorized_user_file(
+        #     token_path,
+        #     scopes=[
+        #         "https://www.googleapis.com/auth/classroom.coursework.me",
+        #         "https://www.googleapis.com/auth/classroom.coursework.students"
+        #     ]
+        # )
 
-    def submit_to_classroom(self, course_id: str, assignment_id: str, file_id: str) -> None:
+        # service = build('classroom', 'v1', credentials=creds)
         try:
-            submission = {
-                "assignmentSubmission": {
-                    "attachments": [{"driveFile": {"id": file_id}}]
-                }
+            assignment = {
+            "title": "Machine Learning",
+            "description": """Task: Build a movie recommendation system using scikit‑learn.
+ 
+Focus: Implementing collaborative filtering, handling input/output from users, evaluating model performance.
+
+Submission:
+
+Create a script that
+Loads a movie-ratings dataset .
+Implements user-based or item-based collaborative filtering .
+Handles user input, e.g. you can accept a user ID or input a movie+users rating for it, and find similar ones that user may like based on that info , you can customize the exact type of input expected from the user, based on your use case.
+Evaluate recommendations using metrics like RMSE or MAE.
+Must: Push your code to github (public repo), Add a README  file with instructions to reproduce results and sample outputs, add screenshots in the readme , push to github and submit the github link.
+
+Helpful links
+https://realpython.com/build-recommendation-engine-collaborative-filtering/
+this kaggle notebook can be a good starting point https://www.kaggle.com/code/ibtesama/getting-started-with-a-movie-recommendation-system
+Building a Movie Recommendation Engine in Python using Scikit-Learn: https://medium.com/%40sumanadhikari/building-a-movie-recommendation-engine-using-scikit-learn-8dbb11c5aa4b
+
+One of the many movies datasets you can find on kaggle: https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata  (you can look for more depending on what info you want to see about the movies)
+
+Be ready to explain how you cleaned the dataset,  and how did you compute similarity!
+
+RUBRIC
+Data preprocessing
+Loading data, preprocessing, cleaning
+5 pts
+
+User based or item based collaborative filtering
+implement either user-based or item-based collaborative filtering using scikit-learn. The logic behind similarity calculation (e.g. cosine similarity, k-NN) should be well-reasoned and correctly implemented.
+10 pts
+
+User input
+Calculations based on user input, not hard coded
+5 pts
+
+Model evaluation
+Evaluate using appropriate metrics like RMSE or MAE, and provide a brief interpretation of the results.
+10 pts
+
+Code quality
+Well-structured, logically organized, and properly commented code. Variable/function names should be clear and meaningful
+5 pts
+
+Github and README
+Submit a link to your github repo. A README file should be submitted as mentioned
+5 pts
+""",
+            "materials": [],
+            "state": "PUBLISHED",
+            "workType": "ASSIGNMENT",
+            "assignment": {},  # 🔥 Required when workType is ASSIGNMENT
+
+            "maxPoints": 100,
+            "dueDate": {
+                "year": 2025,
+                "month": 7,
+                "day": 30
+            },
+            "dueTime": {
+                "hours": 23,
+                "minutes": 59
             }
-            result = self.service.courses().courseWork().studentSubmissions().patch(
+        }
+
+            response = self.service.courses().courseWork().create(
+                courseId=course_id,
+                body=assignment
+            ).execute()
+
+            print("✅ Assignment created:")
+            print("Title:", response["title"])
+            print("ID:", response["id"])
+        except Exception as e:
+            print("Exception in create_assignment:", repr(e))
+            raise HTTPException(status_code=500, detail=f"Assignment creation failed: {str(e)}")
+        return response
+    
+    def get_assignments(self, course_id: str):
+        try:
+            response = self.service.courses().courseWork().list(courseId=course_id).execute()
+            return response
+        except Exception as e:
+            print("Exception in get_assignments:", repr(e))
+            return {"error": str(e)}
+    
+    def get_courses(self):
+        try:
+            response = self.service.courses().list().execute()
+            return response
+        except Exception as e:
+            print("Exception in get_courses:", repr(e))
+            raise HTTPException(status_code=500, detail=f"Course retrieval failed: {str(e)}")
+
+    def submit_to_classroom(self, course_id: str, assignment_id: str, link: str) -> None:
+        try:
+            # Step 1: Get student submission ID
+            submissions = self.service.courses().courseWork().studentSubmissions().list(
                 courseId=course_id,
                 courseWorkId=assignment_id,
-                updateMask="assignmentSubmission.attachments",
-                body=submission
+                userId='me'
             ).execute()
-            
+
+            if 'studentSubmissions' not in submissions or not submissions['studentSubmissions']:
+                raise HTTPException(status_code=404, detail="No submission found for this user.")
+
+            submission = submissions['studentSubmissions'][0]
+            submission_id = submission['id']
+            print("Using submission_id:", submission_id)
+
+            # If already turned in, unsubmit first
+            if submission['state'] == 'TURNED_IN':
+                print("Submission already turned in. Reclaiming (unsubmitting) first...")
+                self.service.courses().courseWork().studentSubmissions().reclaim(
+                    courseId=course_id,
+                    courseWorkId=assignment_id,
+                    id=submission_id
+                ).execute()
+                print("Submission reclaimed.")
+                # Remove all existing attachments
+                existing_attachments = submission.get('assignmentSubmission', {}).get('attachments', [])
+                if existing_attachments:
+                    remove_body = {
+                        "removeAttachments": [
+                            {k: v for k, v in att.items()} for att in existing_attachments
+                        ]
+                    }
+                    print("Removing attachments:", remove_body)
+                    self.service.courses().courseWork().studentSubmissions().modifyAttachments(
+                        courseId=course_id,
+                        courseWorkId=assignment_id,
+                        id=submission_id,
+                        body=remove_body
+                    ).execute()
+                    print("Existing attachments removed.")
+
+            # Step 2: Modify attachments (add the link)
+            modify_body = {
+                "addAttachments": [
+                    {
+                        "link": {
+                            "url": link
+                        }
+                    }
+                ]
+            }
+
+            result = self.service.courses().courseWork().studentSubmissions().modifyAttachments(
+                courseId=course_id,
+                courseWorkId=assignment_id,
+                id=submission_id,
+                body=modify_body
+            ).execute()
+
+            print("modifyAttachments result:", result)
+
+            # Step 3: Turn in the submission
             self.service.courses().courseWork().studentSubmissions().turnIn(
                 courseId=course_id,
                 courseWorkId=assignment_id,
-                id=result['id']
+                id=submission_id
             ).execute()
+
+            print("✅ Submission turned in successfully.")
+
         except Exception as e:
+            print("Exception in submit_to_classroom:", repr(e))
             raise HTTPException(status_code=500, detail=f"Classroom submission failed: {str(e)}")
+
 
 gcr_client = GoogleClassroomClient()
 
 # === Endpoints ===
 @app.post("/submit/classroom")
-async def classroom_submit(course_id: str, assignment_id: str):
+async def classroom_submit(course_id: str, assignment_id: str, link: str):
+    print(course_id, assignment_id, link)
     try:
-        zip_path = "code_submission.zip"
-        if not os.path.exists(zip_path):
-            raise HTTPException(status_code=400, detail="Zipped code not found")
+        # if not os.path.exists("token.json"):
+        #     raise HTTPException(status_code=403, detail="Not authenticated")
 
-        if not os.path.exists("token.json"):
-            raise HTTPException(status_code=403, detail="Not authenticated")
-
-        creds = Credentials.from_authorized_user_file("token.json", gcr_client.SCOPES)
-        file_id = gcr_client.upload_to_drive(zip_path)
-        gcr_client.submit_to_classroom(course_id, assignment_id, file_id)
+        # creds = Credentials.from_authorized_user_file("token.json", gcr_client.SCOPES)
+        gcr_client.submit_to_classroom(course_id, assignment_id, link)
 
         return {
             "status": "classroom_success",
-            "drive_file_id": file_id,
             "assignment_url": f"https://classroom.google.com/c/{course_id}/a/{assignment_id}"
         }
     except HTTPException as e:
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Classroom submission failed: {str(e)}")
+    
+@app.post("/create/assignment")
+async def classroom_create_assignment(course_id: str):
+    gcr_client.create_assignment(course_id)
+    return {"status": "assignment_created"}
+
+@app.post("/classroom/get_assignments")
+async def classroom_get_assignments(course_id: str):
+    return gcr_client.get_assignments(course_id)
 
 @app.post("/classroom/login")
 async def classroom_login():
@@ -122,6 +288,11 @@ async def classroom_login():
         return {"status": "login_success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
+
+@app.post("/classroom/get_courses")
+async def classroom_get_courses():
+    return gcr_client.get_courses()
+
 
 if __name__ == "__main__":
     import uvicorn
