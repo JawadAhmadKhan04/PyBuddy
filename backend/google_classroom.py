@@ -1,18 +1,13 @@
 from __future__ import print_function
-import os
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-import re
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
 
 class GoogleClassroomClient:
     def __init__(self, info: str):
         # self.credentials_path = credentials_path
         # self.token_path = token_path
-        
         
         self.SCOPES = [
     "https://www.googleapis.com/auth/classroom.courses.readonly",                  # Read course metadata
@@ -262,28 +257,28 @@ class GoogleClassroomClient:
         return profile["name"]["fullName"]
             
             
-    def extract_course_id(self, classroom_url):
-        match = re.search(r'/c/([a-zA-Z0-9]+)', classroom_url)
-        if match:
-            return match.group(1)
-        else:
-            raise ValueError("Invalid Google Classroom URL. Course ID not found.")
+    # def extract_course_id(self, classroom_url):
+    #     match = re.search(r'/c/([a-zA-Z0-9]+)', classroom_url)
+    #     if match:
+    #         return match.group(1)
+    #     else:
+    #         raise ValueError("Invalid Google Classroom URL. Course ID not found.")
         
-    def join_course(self, classroom_url = None, course_id = None):
-        if not self.service:
-            print("❌ Not logged in.")
-            return {"error": "Not logged in"}
-        try:
-            if classroom_url:
-                course_id = self.extract_course_id(classroom_url)
-            print(f"✅ Joining course with ID: {course_id}")
-            self.service.courses().students().create(
-            courseId=course_id,
-            body={"userId": "me"}
-        ).execute()
-            print(f"✅ Successfully joined course with ID: {course_id}")
-        except Exception as e:
-            print(f"❌ Failed to join course: {e}")
+    # def join_course(self, classroom_url = None, course_id = None):
+    #     if not self.service:
+    #         print("❌ Not logged in.")
+    #         return {"error": "Not logged in"}
+    #     try:
+    #         if classroom_url:
+    #             course_id = self.extract_course_id(classroom_url)
+    #         print(f"✅ Joining course with ID: {course_id}")
+    #         self.service.courses().students().create(
+    #         courseId=course_id,
+    #         body={"userId": "me"}
+    #     ).execute()
+    #         print(f"✅ Successfully joined course with ID: {course_id}")
+    #     except Exception as e:
+    #         print(f"❌ Failed to join course: {e}")
 
 
     # def login(self):

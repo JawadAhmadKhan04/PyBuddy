@@ -99,9 +99,36 @@ function activate(context) {
 	const wasLoggedIn = context.globalState.get('pybuddyLoggedIn', false);
 	vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', wasLoggedIn);
     classroomTreeProvider.setLoggedIn(wasLoggedIn);
-    // On activation, if logged in, fetch GCR data
-		if (wasLoggedIn) {
+    // On activation, if logged in, open the relevant workspace and fetch GCR data
+    if (wasLoggedIn) {
         (async () => {
+            // Get username and build workspace path
+            let userId = context.globalState.get('pybuddy.username', '');
+            const safeUserId = userId.replace(/[^a-zA-Z0-9-_]/g, '_');
+            const desktopPath = path.join(os.homedir(), 'Desktop');
+            const gclFolder = path.join(desktopPath, `GoogleClassroomLocal_${safeUserId}`);
+            const currentWorkspace = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath;
+            if (!currentWorkspace || path.resolve(currentWorkspace) !== path.resolve(gclFolder)) {
+                try {
+                    if (!fs.existsSync(gclFolder)) {
+                        fs.mkdirSync(gclFolder, { recursive: true });
+                    }
+                    // Read README content from template file
+                    const readmePath = path.join(gclFolder, 'README.md');
+                    const templatePath = path.join(__dirname, '../README_workspace.md');
+                    let readmeContent = '';
+                    if (fs.existsSync(templatePath)) {
+                        readmeContent = fs.readFileSync(templatePath, 'utf8');
+                    }
+                    if (readmeContent) {
+                        fs.writeFileSync(readmePath, readmeContent);
+                    }
+                    const uri = vscode.Uri.file(gclFolder);
+                    await vscode.commands.executeCommand('vscode.openFolder', uri, false);
+                } catch (err) {
+                    vscode.window.showErrorMessage('Failed to create or open GoogleClassroomLocal folder: ' + err.message);
+                }
+            }
             classroomTreeProvider.setLoading(true);
             const gcrData = await fetchGCRData(globalTokenJson);
             const treeData = transformGCRDataToTree(gcrData);
@@ -109,7 +136,7 @@ function activate(context) {
             classroomTreeProvider.setData(treeData);
             classroomTreeProvider.setLoading(false);
         })();
-		} else {
+    } else {
         classroomTreeProvider.setData([]);
 	}
 
@@ -152,11 +179,21 @@ function activate(context) {
                     if (!fs.existsSync(gclFolder)) {
                         fs.mkdirSync(gclFolder, { recursive: true });
                     }
-                    // Create README.md if it doesn't exist
                     const readmePath = path.join(gclFolder, 'README.md');
-                    if (!fs.existsSync(readmePath)) {
-                        fs.writeFileSync(readmePath, '# Google Classroom Workspace\n\nThis folder contains your Google Classroom assignments managed by PyBuddy.');
+                    // Read README content from template file
+                    const templatePath = path.join(__dirname, '../README_workspace.md');
+                    let readmeContent = '';
+                    if (fs.existsSync(templatePath)) {
+                        readmeContent = fs.readFileSync(templatePath, 'utf8');
                     }
+                    if (readmeContent) {
+                        fs.writeFileSync(readmePath, readmeContent);
+                    }
+
+                    // const readmePath = path.join(gclFolder, 'README.md');
+                    // if (!fs.existsSync(readmePath)) {
+                    //     fs.writeFileSync(readmePath, '# Google Classroom Workspace\n\nThis folder contains your Google Classroom assignments managed by PyBuddy.');
+                    // }
                     const uri = vscode.Uri.file(gclFolder);
                     vscode.commands.executeCommand('vscode.openFolder', uri, false);
                     return; // Stop further activation until reload
@@ -214,6 +251,26 @@ function activate(context) {
 			if (questionProvider._webviewView) {
 				questionProvider._webviewView.webview.postMessage({ type: 'clearQuestions' });
 			}
+
+            if (questionProvider && questionProvider._webviewView) {
+                questionProvider._webviewView.webview.onDidReceiveMessage(async (data) => {
+            if (data.type === 'questionsCleared') {
+                // Open README.md in the workspace folder
+                let userId = context.globalState.get('pybuddy.username', '');
+                const safeUserId = userId.replace(/[^a-zA-Z0-9-_]/g, '_');
+                const desktopPath = path.join(os.homedir(), 'Desktop');
+                const gclFolder = path.join(desktopPath, `GoogleClassroomLocal_${safeUserId}`);
+                const readmePath = path.join(gclFolder, 'README.md');
+                if (fs.existsSync(readmePath)) {
+                    const readmeUri = vscode.Uri.file(readmePath);
+                    // Update README.md with a dynamic message
+                    await vscode.window.showTextDocument(readmeUri);
+                }
+                }
+            });
+        }
+
+
 		}),
 		vscode.commands.registerCommand('pybuddy.helloWorld', () => {
 			vscode.window.showInformationMessage('Hello World from PyBuddy!');

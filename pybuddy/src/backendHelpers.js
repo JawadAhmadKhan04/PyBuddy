@@ -6,6 +6,8 @@ const { openFolderInExplorer } = require('./fileHelpers');
 const { globalTokenJson } = require('./activate');
 const { google } = require('googleapis');
 const { OAuth2Client } = require('google-auth-library');
+const http = require('http');
+const { URL } = require('url');
 
 const backend_url = "http://127.0.0.1:8000";
 
@@ -450,18 +452,28 @@ async function getUserName(tokenJson = globalTokenJson) {
     return 'user';
 }
 
+function formatToken(tokens, clientId, clientSecret) {
+    return {
+        token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        token_uri: "https://oauth2.googleapis.com/token",
+        client_id: clientId,
+        client_secret: clientSecret,
+        scopes: tokens.scope ? tokens.scope.split(" ") : [],
+        universe_domain: "googleapis.com",
+        account: "",
+        expiry: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : undefined
+    };
+}
+
 async function loginWithGoogle() {
-    // These values should match your credentials.json
-    const CLIENT_ID = '965979891505-kqmcnlo7g2s70jjvo28t85gsm2tv04m6.apps.googleusercontent.com';
-    const CLIENT_SECRET = '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';
-    const REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'; // Force manual code flow
+    const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
+    const TOKEN_PATH = path.join(__dirname, 'token.json');
     const SCOPES = [
         'https://www.googleapis.com/auth/classroom.courses.readonly',
         'https://www.googleapis.com/auth/classroom.rosters',
         'https://www.googleapis.com/auth/classroom.coursework.me'
     ];
-    const TOKEN_PATH = path.join(__dirname, 'token.json');
-    const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
 
     let credentials;
     if (fs.existsSync(CREDENTIALS_PATH)) {
@@ -469,15 +481,16 @@ async function loginWithGoogle() {
     } else {
         throw new Error('credentials.json not found.');
     }
-    const { client_id, client_secret } = credentials.installed || credentials.web || { client_id: CLIENT_ID, client_secret: CLIENT_SECRET };
-    // Always use the manual redirect URI
-    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);
+    const { client_id, client_secret } = credentials.installed;
+
+    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, 'http://localhost:5000/callback');
 
     // Check if token already exists
     if (fs.existsSync(TOKEN_PATH)) {
         const token = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
         oAuth2Client.setCredentials(token);
-        return token;
+        // Always return the formatted token
+        return formatToken(token, client_id, client_secret);
     }
 
     // Generate the auth URL
@@ -487,20 +500,83 @@ async function loginWithGoogle() {
         prompt: 'consent',
     });
     vscode.env.openExternal(vscode.Uri.parse(authUrl));
-    const code = await vscode.window.showInputBox({
-        prompt: 'Enter the code from Google after login',
-        ignoreFocusOut: true
+
+    const token = await new Promise((resolve, reject) => {
+        const server = require('http').createServer(async (req, res) => {
+            if (req.url.startsWith('/callback')) {
+                const query = new URL(req.url, 'http://localhost:5000').searchParams;
+                const code = query.get('code');
+                res.end('Authentication successful! You may now close this tab.');
+                server.close();
+
+                try {
+                    const { tokens } = await oAuth2Client.getToken(code);
+                    oAuth2Client.setCredentials(tokens);
+                    resolve(tokens);
+                } catch (err) {
+                    reject(err);
+                }
+            }
+        }).listen(5000);
     });
-    if (!code) throw new Error('No code entered.');
-    const { tokens } = await oAuth2Client.getToken(code);
-    oAuth2Client.setCredentials(tokens);
-    // Add client_id and client_secret to the token object
-    tokens.client_id = client_id;
-    tokens.client_secret = client_secret;
-    fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
-	console.log(tokens);
-    return tokens;
+
+    const formattedToken = formatToken(token, client_id, client_secret);
+    fs.writeFileSync(TOKEN_PATH, JSON.stringify(formattedToken));
+    console.log(formattedToken);
+    return formattedToken;
 }
+
+
+// async function loginWithGoogle() {
+//     // These values should match your credentials.json
+//     const REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'; // Force manual code flow
+//     const SCOPES = [
+//         'https://www.googleapis.com/auth/classroom.courses.readonly',
+//         'https://www.googleapis.com/auth/classroom.rosters',
+//         'https://www.googleapis.com/auth/classroom.coursework.me'
+//     ];
+//     const TOKEN_PATH = path.join(__dirname, 'token.json');
+//     const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
+
+//     let credentials;
+//     if (fs.existsSync(CREDENTIALS_PATH)) {
+//         credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
+//     } else {
+//         throw new Error('credentials.json not found.');
+//     }
+//     const { client_id, client_secret } = credentials.installed;
+//     // Always use the manual redirect URI
+//     const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, REDIRECT_URI);
+
+//     // Check if token already exists
+//     if (fs.existsSync(TOKEN_PATH)) {
+//         const token = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
+//         oAuth2Client.setCredentials(token);
+//         return token;
+//     }
+
+//     // Generate the auth URL
+//     const authUrl = oAuth2Client.generateAuthUrl({
+//         access_type: 'offline',
+//         scope: SCOPES,
+//         prompt: 'consent',
+//     });
+//     vscode.env.openExternal(vscode.Uri.parse(authUrl));
+//     const code = await vscode.window.showInputBox({
+//         prompt: 'Enter the code from Google after login',
+//         ignoreFocusOut: true
+//     });
+//     if (!code) throw new Error('No code entered.');
+//     const { tokens } = await oAuth2Client.getToken(code);
+//     oAuth2Client.setCredentials(tokens);
+//     // Add client_id and client_secret to the token object
+//     tokens.client_id = client_id;
+//     tokens.client_secret = client_secret;
+//     const formattedToken = formatToken(tokens, client_id, client_secret);
+//     fs.writeFileSync(TOKEN_PATH, JSON.stringify(formattedToken));
+//     console.log(formattedToken);
+//     return formattedToken;
+// }
 
 module.exports = {
 	handleLoginFlow,

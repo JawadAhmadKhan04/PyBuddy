@@ -16,9 +16,9 @@ class FileBasedHints:
     A class to handle file-based hint generation using a language model.
     """
     
-    class Question_Response(BaseModel):
-        questions: list[str]
-        instructions: str
+    # class Question_Response(BaseModel):
+    #     questions: list[str]
+    #     instructions: str
     
     class Hint(BaseModel):
         hint_text: str
@@ -55,109 +55,109 @@ class FileBasedHints:
     #             f.write(f"# This is question {i+1}")
 
 
-    def execute_preprocessing(self, file_path: str, folder_name: str = "default", auto_file_creation: bool = False) -> dict[int, str]:
-        """
-        Executes the workflow for the file.
-        """
-        print("Executing workflow...")
-        try:
-            # total_questions = 1
-            # all_text = self.extract_text_pymupdf(file_path)
-            questions_dict = self.create_questions(file_path)
-            print(questions_dict)
-            self.save_questions(questions_dict, folder_name)
-            total_questions = len(questions_dict["questions"])
-            # total_questions = 2
-            if auto_file_creation:
-                print(total_questions)
-                self.create_files(folder_name, total_questions)
-            else:
-                pass
-            return {"message": "Preprocessing completed successfully"}
-        except Exception as e:
-            print(f"Error in execute_preprocessing: {str(e)}")
-            return {"error": f"Error in preprocessing file: {str(e)}"}
+    # def execute_preprocessing(self, file_path: str, folder_name: str = "default", auto_file_creation: bool = False) -> dict[int, str]:
+    #     """
+    #     Executes the workflow for the file.
+    #     """
+    #     print("Executing workflow...")
+    #     try:
+    #         # total_questions = 1
+    #         # all_text = self.extract_text_pymupdf(file_path)
+    #         questions_dict = self.create_questions(file_path)
+    #         print(questions_dict)
+    #         self.save_questions(questions_dict, folder_name)
+    #         total_questions = len(questions_dict["questions"])
+    #         # total_questions = 2
+    #         if auto_file_creation:
+    #             print(total_questions)
+    #             self.create_files(folder_name, total_questions)
+    #         else:
+    #             pass
+    #         return {"message": "Preprocessing completed successfully"}
+    #     except Exception as e:
+    #         print(f"Error in execute_preprocessing: {str(e)}")
+    #         return {"error": f"Error in preprocessing file: {str(e)}"}
         
-    def save_questions(self, questions_dict: dict[int, str], folder_name: str) -> None:
-        """
-        Saves the questions to a file.
-        """
-        self.db.save_doc(folder_name, questions_dict)
+    # def save_questions(self, questions_dict: dict[int, str], folder_name: str) -> None:
+    #     """
+    #     Saves the questions to a file.
+    #     """
+    #     self.db.save_doc(folder_name, questions_dict)
         
-    def create_questions(self, file_path: str) -> dict:
-        """
-        Creates questions for the file using the language model.
-        """
-        try:
-            file_data_encoded = pathlib.Path(file_path)
+    # def create_questions(self, file_path: str) -> dict:
+    #     """
+    #     Creates questions for the file using the language model.
+    #     """
+    #     try:
+    #         file_data_encoded = pathlib.Path(file_path)
             
-            # Check if file exists
-            if not file_data_encoded.exists():
-                raise Exception(f"File not found: {file_path}")
+    #         # Check if file exists
+    #         if not file_data_encoded.exists():
+    #             raise Exception(f"File not found: {file_path}")
             
-            prompt = question_separator_prompt.prompt
-            response = self.llm.models.generate_content(
-                model=self.model,
-                contents=[
-                    types.Part.from_bytes(
-                        data=file_data_encoded.read_bytes(),
-                        mime_type='application/pdf',
-                    ),
-                    prompt
-                ],
-                config={
-                    "response_mime_type": "application/json",
-                    "response_schema": self.Question_Response,
-                },
-            )
-            try:
-                parsed = json.loads(response.text)
-                # Reformat to match desired DB structure
-                questions_list = parsed.get('questions', [])
-                instructions = parsed.get('instructions', "")
-                questions_dict = {str(i+1): q for i, q in enumerate(questions_list)}
-                result = {
-                    "questions": questions_dict,
-                    "instructions": instructions
-                }
-                # print(json.dumps(result, indent=2, ensure_ascii=False))
-                return result
-            except Exception as e:
-                print("Could not parse response as JSON, printing raw text:")
-                print(response.text)
-                raise Exception(f"Failed to parse Gemini response: {str(e)}")
-        except Exception as e:
-            print(f"Error in create_questions: {str(e)}")
-            raise e
+    #         prompt = question_separator_prompt.prompt
+    #         response = self.llm.models.generate_content(
+    #             model=self.model,
+    #             contents=[
+    #                 types.Part.from_bytes(
+    #                     data=file_data_encoded.read_bytes(),
+    #                     mime_type='application/pdf',
+    #                 ),
+    #                 prompt
+    #             ],
+    #             config={
+    #                 "response_mime_type": "application/json",
+    #                 "response_schema": self.Question_Response,
+    #             },
+    #         )
+    #         try:
+    #             parsed = json.loads(response.text)
+    #             # Reformat to match desired DB structure
+    #             questions_list = parsed.get('questions', [])
+    #             instructions = parsed.get('instructions', "")
+    #             questions_dict = {str(i+1): q for i, q in enumerate(questions_list)}
+    #             result = {
+    #                 "questions": questions_dict,
+    #                 "instructions": instructions
+    #             }
+    #             # print(json.dumps(result, indent=2, ensure_ascii=False))
+    #             return result
+    #         except Exception as e:
+    #             print("Could not parse response as JSON, printing raw text:")
+    #             print(response.text)
+    #             raise Exception(f"Failed to parse Gemini response: {str(e)}")
+    #     except Exception as e:
+    #         print(f"Error in create_questions: {str(e)}")
+    #         raise e
     
-    def get_question_text(self, folder_name: str, question_no: int) -> tuple[str, str]:
-        """
-        Returns the text of the question.
-        """
-        try:
-            data = self.db.get_doc(folder_name)
-            # print(data)
-            question_text = data['questions'][str(question_no)]
-            instructions = data['instructions']
-            # print("question_text:", question_text)
-            # print("instructions:", instructions)
-            return question_text, instructions   # Return the specific question by index
-        except Exception as e:
-            print(e)
-            return None, None
+    # def get_question_text(self, folder_name: str, question_no: int) -> tuple[str, str]:
+    #     """
+    #     Returns the text of the question.
+    #     """
+    #     try:
+    #         data = self.db.get_doc(folder_name)
+    #         # print(data)
+    #         question_text = data['questions'][str(question_no)]
+    #         instructions = data['instructions']
+    #         # print("question_text:", question_text)
+    #         # print("instructions:", instructions)
+    #         return question_text, instructions   # Return the specific question by index
+    #     except Exception as e:
+    #         print(e)
+    #         return None, None
 
         # print("question:", question)
         
         # print(self.db.get_question(folder_name, question_no))
         # return questions_dict[str(question_no)]
         
-    def add_api_key(self, api_key: str) -> None:
-        """
-        Adds the API key to the database.
-        """
-        self.db.save_api_key(api_key)
-        self.llm = genai.Client(api_key=api_key)
-        # print(os.getenv("GEMINI_API_KEY"))
+    # def add_api_key(self, api_key: str) -> None:
+    #     """
+    #     Adds the API key to the database.
+    #     """
+    #     self.db.save_api_key(api_key)
+    #     self.llm = genai.Client(api_key=api_key)
+    #     # print(os.getenv("GEMINI_API_KEY"))
 
 
 
