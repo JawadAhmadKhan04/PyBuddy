@@ -157,6 +157,12 @@ class QuestionInterface {
             case 'loadQuestions':
                 this.loadSavedQuestions(message.questions);
                 break;
+            case 'disableSubmitButton':
+                this.setSubmitButtonDisabled(true);
+                break;
+            case 'enableSubmitButton':
+                this.setSubmitButtonDisabled(false);
+                break;
         }
     }
 
@@ -234,6 +240,13 @@ class QuestionInterface {
                 </div>
             `;
             this.questionMessages.appendChild(welcomeDiv);
+        }
+    }
+
+    setSubmitButtonDisabled(disabled) {
+        const btn = document.getElementById('assignment-action-btn');
+        if (btn) {
+            btn.disabled = disabled;
         }
     }
 }

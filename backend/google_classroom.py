@@ -5,10 +5,12 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 class GoogleClassroomClient:
-    def __init__(self, info: str, credentials_path='credentials.json'):
-        self.credentials_path = credentials_path
+    def __init__(self, info: str):
+        # self.credentials_path = credentials_path
         # self.token_path = token_path
         
         
@@ -143,19 +145,22 @@ class GoogleClassroomClient:
         return final_data
 
             
-    def get_courses(self, limit=10):
-        if not self.service:
-            print("❌ Not logged in.")
-            return {"error": "Not logged in"}
+    # def get_courses(self, limit=100):
+    #     if not self.service:
+    #         print("❌ Not logged in.")
+    #         return {"error": "Not logged in"}
 
-        results = self.service.courses().list(pageSize=limit).execute()
-        courses = results.get('courses', [])
+    #     results = self.service.courses().list(pageSize=limit).execute()
+    #     courses = results.get('courses', [])
 
-        if not courses:
-            print("📭 No courses found.")
-            return {"error": "No courses found"}
+    #     if not courses:
+    #         print("📭 No courses found.")
+    #         return {"error": "No courses found"}
 
-        return {"courses": courses}
+    #     return {"courses": courses}
+
+
+# from concurrent.futures import ThreadPoolExecutor, as_completed
 
     def get_assignments(self, course_id):
         if not self.service:
@@ -190,12 +195,64 @@ class GoogleClassroomClient:
                     "dueTime": work.get("dueTime", {}),
                     "submissionState": submission_state
                 })
+                
 
             return result
 
         except Exception as e:
             print(f"❌ Failed to fetch assignments for course {course_id}: {e}")
             return None
+
+
+
+    # def get_assignments(self, course_id):
+    #     if not self.service:
+    #         print("❌ Not logged in.")
+    #         return []
+
+    #     try:
+    #         response = self.service.courses().courseWork().list(courseId=course_id).execute()
+    #         coursework = response.get("courseWork", [])
+    #         result = []
+
+    #         def fetch_submission(work):
+    #             course_work_id = work["id"]
+    #             try:
+    #                 submission_response = self.service.courses().courseWork().studentSubmissions().list(
+    #                     courseId=course_id,
+    #                     courseWorkId=course_work_id,
+    #                     userId="me"
+    #                 ).execute()
+
+    #                 submissions = submission_response.get("studentSubmissions", [])
+    #                 submission_state = submissions[0]["state"] if submissions else "UNKNOWN"
+
+    #                 return {
+    #                     "assignmentId": work.get("id", ""),
+    #                     "title": work.get("title", ""),
+    #                     "description": work.get("description", f"No description given for {work.get('title', '')}"),
+    #                     "dueDate": work.get("dueDate", {}),
+    #                     "dueTime": work.get("dueTime", {}),
+    #                     "submissionState": submission_state
+    #                 }
+    #             except Exception as e:
+    #                 print(f"❌ Error fetching submission for coursework {course_work_id}: {e}")
+    #                 return None
+
+    #         with ThreadPoolExecutor(max_workers=10) as executor:
+    #             futures = [executor.submit(fetch_submission, work) for work in coursework]
+    #             for future in as_completed(futures):
+    #                 res = future.result()
+    #                 if res:
+    #                     result.append(res)
+
+    #         print("result", result)
+    #         return result
+
+    #     except Exception as e:
+    #         print(f"❌ Failed to fetch assignments for course {course_id}: {e}")
+    #         return None
+
 
     def get_user_name(self):
         if not self.service:
@@ -274,14 +331,15 @@ class GoogleClassroomClient:
             print('No courses found.')
             return {"error": "No courses found"}
         else:
-            print('Courses:')
+            
             profile = self.service.userProfiles().get(userId="me").execute()
             current_user_id = profile["id"]
 
             courses = [course for course in courses if course.get("ownerId") != current_user_id]
 
-            for course in courses:
-                print(f"{course['name']} ({course['id']})")
+            # for course in courses:
+            #     print(f"{course['name']} ({course['id']})")
+            print('Courses DONE')
                 
 
         return {"courses": courses}

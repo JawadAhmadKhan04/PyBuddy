@@ -125,6 +125,7 @@ function activate(context) {
             classroomTreeProvider.setData(treeData);
             classroomTreeProvider.setLoading(false);
             vscode.window.showInformationMessage('Google Classroom data refreshed!');
+            
         }),
 		vscode.commands.registerCommand('pybuddy.login', async () => {
         try {
@@ -150,6 +151,11 @@ function activate(context) {
                 try {
                     if (!fs.existsSync(gclFolder)) {
                         fs.mkdirSync(gclFolder, { recursive: true });
+                    }
+                    // Create README.md if it doesn't exist
+                    const readmePath = path.join(gclFolder, 'README.md');
+                    if (!fs.existsSync(readmePath)) {
+                        fs.writeFileSync(readmePath, '# Google Classroom Workspace\n\nThis folder contains your Google Classroom assignments managed by PyBuddy.');
                     }
                     const uri = vscode.Uri.file(gclFolder);
                     vscode.commands.executeCommand('vscode.openFolder', uri, false);
@@ -539,7 +545,24 @@ function activate(context) {
                     }
                 }
             }
-            // Call backend API with loading bar
+            // Disable the submit button in the question panel
+            if (questionProvider && questionProvider._webviewView) {
+                questionProvider._webviewView.webview.postMessage({ type: 'disableSubmitButton' });
+            }
+            const confirm = await vscode.window.showWarningMessage(
+                'Are you sure you want to submit? You will not be allowed to submit again.',
+                { modal: true },
+                'Submit',
+                'Cancel'
+            );
+            if (confirm !== 'Submit') {
+                vscode.window.showInformationMessage('Submission cancelled.');
+                // Re-enable the submit button if cancelled
+                if (questionProvider && questionProvider._webviewView) {
+                    questionProvider._webviewView.webview.postMessage({ type: 'enableSubmitButton' });
+                }
+                return;
+            }
             await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
                 title: 'Submitting assignment to GitHub...',
@@ -558,13 +581,22 @@ function activate(context) {
                     vscode.window.showInformationMessage(`Assignment submitted! ${result.message}`);
                     // Automatically refresh GCR data
                     classroomTreeProvider.setLoading(true);
+                                // Also clear the question panel so it shows the default message
+                    if (questionProvider && questionProvider._webviewView) {
+                        questionProvider._webviewView.webview.postMessage({ type: 'clearQuestions' });
+                    }
                     const gcrData = await fetchGCRData(globalTokenJson);
                     const treeData = transformGCRDataToTree(gcrData);
                     setParentReferences(treeData);
                     classroomTreeProvider.setData(treeData);
                     classroomTreeProvider.setLoading(false);
+                    // Keep submit button disabled on success
                 } else {
                     vscode.window.showErrorMessage(`Failed to submit assignment: ${result.error || 'Unknown error'}`);
+                    // Re-enable the submit button on failure
+                    if (questionProvider && questionProvider._webviewView) {
+                        questionProvider._webviewView.webview.postMessage({ type: 'enableSubmitButton' });
+                    }
                 }
             });
         }
@@ -641,6 +673,12 @@ function activate(context) {
                 // Clear hints when assignment hasn't been started
                 if (chatProvider && chatProvider._webviewView) {
                     chatProvider._webviewView.webview.postMessage({ type: 'clearChat' });
+                }
+                // Open README.md in the workspace folder
+                const readmePath = path.join(gclFolder, 'README.md');
+                if (fs.existsSync(readmePath)) {
+                    const readmeUri = vscode.Uri.file(readmePath);
+                    await vscode.window.showTextDocument(readmeUri);
                 }
             }
             // Also show the question panel for this assignment
