@@ -194,10 +194,10 @@ function activate(context) {
                 chatProvider._webviewView.webview.postMessage({ type: 'clearChat' });
             }
             // Delete GitHub credentials on logout
-            await context.globalState.update('githubUsername', undefined);
-            await context.globalState.update('githubToken', undefined);
-            context.githubUsername = undefined;
-            context.githubToken = undefined;
+            // await context.globalState.update('githubUsername', undefined);
+            // await context.globalState.update('githubToken', undefined);
+            // context.githubUsername = undefined;
+            // context.githubToken = undefined;
 		}),
         vscode.commands.registerCommand('pybuddy.addApiKey', addApiKeyCommand),
 		vscode.commands.registerCommand('pybuddy.showHints', handleShowHints(chatProvider)),
@@ -577,7 +577,26 @@ function activate(context) {
                     code_files: codeFiles,
                     info: globalTokenJson
                 });
-                if (result.message) {
+                if (result && result.error) {
+                    let userMessage = result.error;
+                    // Friendly error mapping
+                    if (userMessage.includes('401')) {
+                        userMessage = 'Authentication failed: Your GitHub credentials are missing, invalid, or expired. Please update your credentials.';
+                    } else if (userMessage.includes('403')) {
+                        userMessage = 'Permission denied: Your GitHub token does not have permission to perform this action.';
+                    } else if (userMessage.includes('422')) {
+                        userMessage = 'Validation error: The repository or file data is invalid or already exists.';
+                    } else if (userMessage.toLowerCase().includes('not found')) {
+                        userMessage = 'Resource not found: The requested repository or file could not be found.';
+                    } else if (userMessage.toLowerCase().includes('server error')) {
+                        userMessage = 'Server error: There was a problem with the server. Please try again later.';
+                    }
+                    vscode.window.showErrorMessage(`GitHub Submission Failed: ${userMessage}`);
+                    // Re-enable the submit button on failure
+                    if (questionProvider && questionProvider._webviewView) {
+                        questionProvider._webviewView.webview.postMessage({ type: 'enableSubmitButton' });
+                    }
+                } else if (result && result.message) {
                     vscode.window.showInformationMessage(`Assignment submitted! ${result.message}`);
                     // Automatically refresh GCR data
                     classroomTreeProvider.setLoading(true);
@@ -592,7 +611,7 @@ function activate(context) {
                     classroomTreeProvider.setLoading(false);
                     // Keep submit button disabled on success
                 } else {
-                    vscode.window.showErrorMessage(`Failed to submit assignment: ${result.error || 'Unknown error'}`);
+                    vscode.window.showErrorMessage('Unknown error occurred during submission.');
                     // Re-enable the submit button on failure
                     if (questionProvider && questionProvider._webviewView) {
                         questionProvider._webviewView.webview.postMessage({ type: 'enableSubmitButton' });
@@ -687,10 +706,10 @@ function activate(context) {
     );
 
     // On login, load GitHub credentials if they exist
-    const githubUsername = context.globalState.get('githubUsername', '');
-    const githubToken = context.globalState.get('githubToken', '');
-    context.githubUsername = githubUsername;
-    context.githubToken = githubToken;
+    // const githubUsername = context.globalState.get('githubUsername', '');
+    // const githubToken = context.globalState.get('githubToken', '');
+    // context.githubUsername = githubUsername;
+    // context.githubToken = githubToken;
 }
 
 module.exports = { activate };
