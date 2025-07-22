@@ -90,7 +90,6 @@ async function handleLoginFlow() {
                 }
                 const data = await response.json();
                 if (data.folder_path) {
-                    vscode.window.showInformationMessage('Folder path: ' + data.folder_path);
                     await openFolderInExplorer(data.folder_path);
                 } else if (data.error) {
                     vscode.window.showErrorMessage('Error: ' + data.error);
@@ -171,86 +170,88 @@ function handleShowHints(chatProvider) {
 }
 
 function handleGenerateHints(chatProvider, context) {
-	return async function (description = null) {
-		const activeEditor = vscode.window.activeTextEditor;
-		if (activeEditor) {
-			currentFilePath = activeEditor.document.uri.fsPath;
-			await vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: 'Generating hints...',
-					cancellable: false
-				},
-				async (progress) => {
-					const filePath = activeEditor.document.uri.fsPath;
-					const folderPath = path.dirname(filePath);
+    return async function (description = null) {
+        const activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor) {
+            // Save the current editor content before proceeding
+            await activeEditor.document.save();
+            
+            currentFilePath = activeEditor.document.uri.fsPath;
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: 'Generating hints...',
+                    cancellable: false
+                },
+                async (progress) => {
+                    const filePath = activeEditor.document.uri.fsPath;
+                    const folderPath = path.dirname(filePath);
 
-					// Read all files in the folder and build codeDict
-					let codeDict = {};
-					const files = fs.readdirSync(folderPath);
-					for (const file of files) {
-						const fullPath = path.join(folderPath, file);
-						if (fs.statSync(fullPath).isFile()) {
-							codeDict[file] = fs.readFileSync(fullPath, 'utf-8');
-						}
-					}
+                    // Read all files in the folder and build codeDict
+                    let codeDict = {};
+                    const files = fs.readdirSync(folderPath);
+                    for (const file of files) {
+                        const fullPath = path.join(folderPath, file);
+                        if (fs.statSync(fullPath).isFile()) {
+                            codeDict[file] = fs.readFileSync(fullPath, 'utf-8');
+                        }
+                    }
 
-					try {
-						const endpoint = `${backend_url}/generate_hints`;
-						console.log(description);
-						const requestBody = {
-							code_dict: codeDict,
-							question_data: description || '',
-							username: context.globalState.get('pybuddy.username', '')
-						};
-						console.log(requestBody);
-						const response = await fetch(endpoint, {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify(requestBody)
-						});
-						if (!response.ok) {
-							throw new Error(`Backend returned status ${response.status}`);
-						}
-						const data = await response.json();
-						console.log(data.hint)
+                    try {
+                        const endpoint = `${backend_url}/generate_hints`;
+                        console.log(description);
+                        const requestBody = {
+                            code_dict: codeDict,
+                            question_data: description || '',
+                            username: context.globalState.get('pybuddy.username', '')
+                        };
+                        console.log(requestBody);
+                        const response = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(requestBody)
+                        });
+                        if (!response.ok) {
+                            throw new Error(`Backend returned status ${response.status}`);
+                        }
+                        const data = await response.json();
+                        console.log(data.hint)
 
-						if (data.error) {
-							vscode.window.showErrorMessage("Error: API Key is Invalid. Either enter a valid API key or check if the API key is not expired.");
-						}
-						// Send hint to chat interface
-						let hintMessage;
-						const pathParts = filePath.split('\\');
-						const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
-						if (fileNameIndex > 0) {
-							const folderPathDisplay = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
-							hintMessage = `💡 Hint for ${folderPathDisplay}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
-						} else {
-							// Fallback to just the filename if path structure is different
-							hintMessage = `💡 Hint for ${activeEditor.document.fileName.split('/').pop()}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
-						}
-						// Store hint in fileHints
-						if (!fileHints[currentFilePath]) {
-							fileHints[currentFilePath] = [];
-						}
-						fileHints[currentFilePath].push(hintMessage);
-						// Send hint to chat interface
-						if (chatProvider._webviewView) {
-							chatProvider._webviewView.webview.postMessage({ 
-								type: 'hint', 
-								content: hintMessage 
-							});
-						}
-						vscode.window.showInformationMessage('Hint generated and sent to chat!');
-					} catch (error) {
-						vscode.window.showErrorMessage('Failed to generate hints: ' + error.message);
-					}
-				}
-			);
-		} else {
-			vscode.window.showInformationMessage("No active editor (no file is open).");
-		}
-	};
+                        if (data.error) {
+                            vscode.window.showErrorMessage("Error: API Key is Invalid. Either enter a valid API key or check if the API key is not expired.");
+                        }
+                        // Send hint to chat interface
+                        let hintMessage;
+                        const pathParts = filePath.split('\\');
+                        const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
+                        if (fileNameIndex > 0) {
+                            const folderPathDisplay = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
+                            hintMessage = `💡 Hint for ${folderPathDisplay}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
+                        } else {
+                            // Fallback to just the filename if path structure is different
+                            hintMessage = `💡 Hint for ${activeEditor.document.fileName.split('/').pop()}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
+                        }
+                        // Store hint in fileHints
+                        if (!fileHints[currentFilePath]) {
+                            fileHints[currentFilePath] = [];
+                        }
+                        fileHints[currentFilePath].push(hintMessage);
+                        // Send hint to chat interface
+                        if (chatProvider._webviewView) {
+                            chatProvider._webviewView.webview.postMessage({ 
+                                type: 'hint', 
+                                content: hintMessage 
+                            });
+                        }
+                    } catch (error) {
+                        vscode.window.showErrorMessage('Failed to generate hints: ' + error.message);
+                    }
+                }
+            );
+        } else {
+            vscode.window.showInformationMessage("No active editor (no file is open).");
+        }
+    };
 }
 
 function handleGenerateQuestions(questionProvider) {
@@ -325,7 +326,6 @@ function handleGenerateQuestions(questionProvider) {
 									});
 								}
 							}
-							vscode.window.showInformationMessage('Question sent to questions panel!');
 						} else {
 							vscode.window.showWarningMessage('No question returned by backend.');
 						}
