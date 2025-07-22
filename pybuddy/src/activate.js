@@ -471,7 +471,6 @@ function activate(context) {
             try {
                 if (!fs.existsSync(assignmentFolder)) {
                     fs.mkdirSync(assignmentFolder, { recursive: true });
-                    vscode.window.showInformationMessage(`Created folder: ${assignmentFolder}`);
                 } else {
                     vscode.window.showInformationMessage(`Folder already exists: ${assignmentFolder}`);
                 }
