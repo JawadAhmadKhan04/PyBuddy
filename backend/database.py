@@ -42,20 +42,4 @@ class Database:
             return json.loads(data)
         return {}
 
-    
-#     def save_doc(self, doc_name: str, questions: dict):
-#         self.redis.set(doc_name, json.dumps(questions))
-
-#     def get_doc(self, doc_name: str):
-#         raw_data = self.redis.get(doc_name)
-#         if raw_data:
-#             data = json.loads(raw_data.decode())  # Decode bytes → str → dict
-#             return data
-#         return None
-    
-
-#     def delete_doc(self, doc_name: str):
-#         self.redis.delete(doc_name)
-
-#     def get_all_docs(self):
-#         return self.redis.keys()
+  

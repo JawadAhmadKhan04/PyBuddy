@@ -7,17 +7,35 @@ import io
 import zipfile
 from googleapiclient.http import MediaIoBaseUpload
 
-class GoogleClassroomClient:
-    def __init__(self, info: str):
-        
-        
-        self.SCOPES = [
+SCOPES = [
     "https://www.googleapis.com/auth/classroom.courses.readonly",
             "https://www.googleapis.com/auth/classroom.rosters.readonly",
             "https://www.googleapis.com/auth/classroom.coursework.me",
             "https://www.googleapis.com/auth/drive.file",
             "https://www.googleapis.com/auth/classroom.coursework.students"
 ]
+
+def get_creds():
+        import os
+        import json
+        credentials_path = os.path.join(os.path.dirname(__file__), "credentials.json")
+        if not os.path.exists(credentials_path):
+            return {"error": "credentials.json not found"}
+        with open(credentials_path, "r") as f:
+            credentials = json.load(f)
+        # Return only the 'installed' part if present, else the whole file
+        creds_obj = credentials.get("installed", credentials)
+        return {
+            "credentials": creds_obj,
+            "scopes": SCOPES
+        }
+           
+
+class GoogleClassroomClient:
+    def __init__(self, info: str):
+        
+        
+        self.SCOPES = SCOPES
         # Load token if it exists
         if info and info.strip():
             try:
@@ -37,6 +55,7 @@ class GoogleClassroomClient:
             print(f"❌ Error building service: {e}")
             self.service = None
             
+     
     def upload_to_drive(self, files_dict: dict, zip_name: str = "submission.zip") -> tuple:
         try:
             # Create in-memory zip

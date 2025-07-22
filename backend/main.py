@@ -4,7 +4,7 @@ import re
 from database import Database
 from file_based_hints import FileBasedHints
 from typing import Dict
-from google_classroom import GoogleClassroomClient
+from google_classroom import GoogleClassroomClient, get_creds
 from git import GitHub
 from models import GenerateHintsRequest, AddApiKeyRequest, AddGithubRequest, DeleteGithubRequest, StartingUpRequest, GitPushRequest
 
@@ -102,6 +102,10 @@ async def logout(request: StartingUpRequest):
 async def get_user_name(request: StartingUpRequest):
     gcr = GoogleClassroomClient(info=request.info)
     return {"user_name": gcr.get_user_name()}
+
+@app.post("/get_credentials")
+async def get_credentials():
+    return get_creds()
 
 @app.post("/generate_hints")
 async def generate_hints(request: GenerateHintsRequest):

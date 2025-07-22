@@ -358,7 +358,6 @@ function activate(context) {
                         (node.dueTime?.minutes ?? 59)
                     );
                     
-					// console.log(due); // TODO : CHECK IT OUT LATER
                     const now = new Date();
                     if (now > due) {
                         firstLine = '<span style="color: red; font-weight: bold;">Due date has passed</span>';
