@@ -1,14 +1,6 @@
 from pydantic import BaseModel
 from typing import Dict
 
-# class QuestionRequest(BaseModel):
-#     file_path:str
-
-# class PreprocessingRequest(BaseModel):
-#     file_path: str
-#     folder_name: str
-#     file_creation_method: str
-
 class GenerateHintsRequest(BaseModel):
     question_data: str
     code_dict: Dict[str, str]
@@ -25,9 +17,6 @@ class AddGithubRequest(BaseModel):
 
 class DeleteGithubRequest(BaseModel):
     username: str
-
-# class ChatRequest(BaseModel):
-#     message: str
 
 class StartingUpRequest(BaseModel):
     info: str

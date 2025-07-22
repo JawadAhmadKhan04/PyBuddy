@@ -77,53 +77,24 @@ class GoogleClassroomClient:
         # service = build('classroom', 'v1', credentials=creds)
         try:
             assignment = {
-            "title": "Machine Learning",
-            "description": """Task: Build a movie recommendation system using scikit‑learn.
- 
-Focus: Implementing collaborative filtering, handling input/output from users, evaluating model performance.
+            "title": "Minimum Moves to Make Array Equal",
+            "description": """
+Problem:
+You are given an array of n integers. In one move, you can increment any element by 1 or decrement any element by 1. Your task is to make all elements of the array equal using the minimum number of moves.
 
-Submission:
+Input:
 
-Create a script that
-Loads a movie-ratings dataset .
-Implements user-based or item-based collaborative filtering .
-Handles user input, e.g. you can accept a user ID or input a movie+users rating for it, and find similar ones that user may like based on that info , you can customize the exact type of input expected from the user, based on your use case.
-Evaluate recommendations using metrics like RMSE or MAE.
-Must: Push your code to github (public repo), Add a README  file with instructions to reproduce results and sample outputs, add screenshots in the readme , push to github and submit the github link.
+An integer n (1 ≤ n ≤ 10⁵)
 
-Helpful links
-https://realpython.com/build-recommendation-engine-collaborative-filtering/
-this kaggle notebook can be a good starting point https://www.kaggle.com/code/ibtesama/getting-started-with-a-movie-recommendation-system
-Building a Movie Recommendation Engine in Python using Scikit-Learn: https://medium.com/%40sumanadhikari/building-a-movie-recommendation-engine-using-scikit-learn-8dbb11c5aa4b
+An array of n integers a₁, a₂, ..., aₙ
 
-One of the many movies datasets you can find on kaggle: https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata  (you can look for more depending on what info you want to see about the movies)
+Output:
 
-Be ready to explain how you cleaned the dataset,  and how did you compute similarity!
+The minimum number of moves required.
 
-RUBRIC
-Data preprocessing
-Loading data, preprocessing, cleaning
-5 pts
-
-User based or item based collaborative filtering
-implement either user-based or item-based collaborative filtering using scikit-learn. The logic behind similarity calculation (e.g. cosine similarity, k-NN) should be well-reasoned and correctly implemented.
-10 pts
-
-User input
-Calculations based on user input, not hard coded
-5 pts
-
-Model evaluation
-Evaluate using appropriate metrics like RMSE or MAE, and provide a brief interpretation of the results.
-10 pts
-
-Code quality
-Well-structured, logically organized, and properly commented code. Variable/function names should be clear and meaningful
-5 pts
-
-Github and README
-Submit a link to your github repo. A README file should be submitted as mentioned
-5 pts
+Example:
+Input: n = 5, a = [1, 2, 3, 4, 5]
+Output: 6
 """,
             "materials": [],
             "state": "PUBLISHED",
