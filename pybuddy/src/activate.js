@@ -190,10 +190,7 @@ function activate(context) {
                         fs.writeFileSync(readmePath, readmeContent);
                     }
 
-                    // const readmePath = path.join(gclFolder, 'README.md');
-                    // if (!fs.existsSync(readmePath)) {
-                    //     fs.writeFileSync(readmePath, '# Google Classroom Workspace\n\nThis folder contains your Google Classroom assignments managed by PyBuddy.');
-                    // }
+                  
                     const uri = vscode.Uri.file(gclFolder);
                     vscode.commands.executeCommand('vscode.openFolder', uri, false);
                     return; // Stop further activation until reload
@@ -230,11 +227,6 @@ function activate(context) {
             if (chatProvider._webviewView) {
                 chatProvider._webviewView.webview.postMessage({ type: 'clearChat' });
             }
-            // Delete GitHub credentials on logout
-            // await context.globalState.update('githubUsername', undefined);
-            // await context.globalState.update('githubToken', undefined);
-            // context.githubUsername = undefined;
-            // context.githubToken = undefined;
 		}),
         vscode.commands.registerCommand('pybuddy.addApiKey', addApiKeyCommand),
 		vscode.commands.registerCommand('pybuddy.showHints', handleShowHints(chatProvider)),
@@ -335,60 +327,6 @@ function activate(context) {
                 }
             }
         }),
-        // vscode.commands.registerCommand('pybuddy.showAssignmentDescription', (node) => {
-        //     if (questionProvider && questionProvider._webviewView && node && node.label) {
-        //         questionProvider._webviewView.webview.currentAssignmentLabel = node.label;
-        //         currentAssignmentNode = node;
-        //     }
-        //     if (node && node.description !== undefined) {
-        //         // Log the submissionState for debugging
-        //         console.log('Assignment name: ', node.label, 'submissionState:', node.submissionState);
-        //         let firstLine = '';
-        //         // console.log(node.dueDate);
-        //         // console.log(node.dueTime);
-        //         if (!node.dueDate || !node.dueTime) {
-        //             firstLine = '<span style="color: orange; font-weight: bold;">Due date is not mentioned</span>';
-        //         } else {
-        //             // Compose a JS Date object from dueDate and dueTime
-        //             const due = new Date(
-        //                 (node.dueDate?.year ?? 2050),
-        //                 (node.dueDate?.month ?? 1) - 1, // Default to February (1), JS months are 0-based
-        //                 (node.dueDate?.day ?? 1),
-        //                 (node.dueTime?.hours ?? 23),
-        //                 (node.dueTime?.minutes ?? 59)
-        //             );
-                    
-		// 			// console.log(due); // TODO : CHECK IT OUT LATER
-        //             const now = new Date();
-        //             if (now > due) {
-        //                 firstLine = '<span style="color: red; font-weight: bold;">Due date has passed</span>';
-        //             } else {
-        //                 // Format as 'Due: YYYY-MM-DD HH:MM'
-        //                 const pad = n => n.toString().padStart(2, '0');
-        //                 const dateStr = `${due.getFullYear()}-${pad(due.getMonth()+1)}-${pad(due.getDate())}`;
-        //                 const timeStr = `${pad(due.getHours())}:${pad(due.getMinutes())}`;
-        //                 firstLine = `<span style="font-weight: bold;">Due: ${dateStr} ${timeStr}</span>`;
-        //             }
-        //         }
-        //         let secondLine = '';
-        //         if (node.submissionState === 'TURNED_IN') {
-        //             secondLine = '<span style="color: green; font-weight: bold;">Already submitted</span>';
-        //         }
-        //         let content = node.description;
-        //         if (firstLine) {
-        //             content = `${firstLine}${secondLine ? '<br>' + secondLine : ''}<br><br>${content}`;
-        //         }
-        //         if (questionProvider._webviewView) {
-        //             questionProvider._webviewView.webview.postMessage({
-        //                 type: 'showAssignmentDescription',
-        //                 content: content
-        //             });
-        //         } else {
-        //             vscode.window.showInformationMessage(node.description);
-        //         }
-        //     }
-        // })
-
 	);
 
     let currentAssignmentNode = null;
@@ -731,11 +669,7 @@ function activate(context) {
 
             // Fetch username from backendHelpers
             let userId = context.globalState.get('pybuddy.username', '');
-            // try {
-            //     userId = await getUserName(globalTokenJson);
-            // } catch (err) {
-            //     vscode.window.showWarningMessage('Could not fetch user name, using default folder.');
-            // }
+            
             const safeUserId = userId.replace(/[^a-zA-Z0-9-_]/g, '_');
             const desktopPath = path.join(os.homedir(), 'Desktop');
             const gclFolder = path.join(desktopPath, `GoogleClassroomLocal_${safeUserId}`);
@@ -762,11 +696,6 @@ function activate(context) {
         })
     );
 
-    // On login, load GitHub credentials if they exist
-    // const githubUsername = context.globalState.get('githubUsername', '');
-    // const githubToken = context.globalState.get('githubToken', '');
-    // context.githubUsername = githubUsername;
-    // context.githubToken = githubToken;
 }
 
 module.exports = { activate };
