@@ -2,15 +2,17 @@ import os
 import re
 import base64
 from datetime import datetime
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from pydantic import BaseModel
 from pytz import timezone, utc
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
+from googleapiclient.http import MediaFileUpload, MediaIoBaseUpload
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from typing import Optional
+import io
+import zipfile
 
 app = FastAPI()
 
@@ -42,19 +44,25 @@ class GoogleClassroomClient:
             return creds
         return None
 
-    # def upload_to_drive(self, file_path: str) -> str:
-    #     try:
-    #         drive_service = build('drive', 'v3', credentials=self.creds)
-    #         file_metadata = {'name': os.path.basename(file_path)}
-    #         media = MediaFileUpload(file_path, mimetype='application/zip')
-    #         file = drive_service.files().create(
-    #             body=file_metadata,
-    #             media_body=media,
-    #             fields='id'
-    #         ).execute()
-    #         return file['id']
-    #     except Exception as e:
-    #         raise HTTPException(status_code=500, detail=f"Drive upload failed: {str(e)}")
+    def upload_to_drive(self, files_dict: dict, zip_name: str = "submission.zip") -> tuple:
+        try:
+            # Create in-memory zip
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for filename, filedata in files_dict.items():
+                    zip_file.writestr(filename, filedata)
+            zip_buffer.seek(0)
+            drive_service = build('drive', 'v3', credentials=self.creds)
+            file_metadata = {'name': zip_name}
+            media = MediaIoBaseUpload(zip_buffer, mimetype='application/zip', resumable=True)
+            file = drive_service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields='id, webViewLink'
+            ).execute()
+            return file['webViewLink'], file['id']
+        except Exception as e:
+            return None, f"Drive upload failed: {str(e)}"
     
     def create_assignment(self, course_id: str):
     # Load credentials (make sure you've done OAuth flow and saved token.json)
@@ -163,7 +171,7 @@ Submit a link to your github repo. A README file should be submitted as mentione
             print("Exception in get_courses:", repr(e))
             raise HTTPException(status_code=500, detail=f"Course retrieval failed: {str(e)}")
 
-    def submit_to_classroom(self, course_id: str, assignment_id: str, link: str) -> None:
+    def submit_to_classroom(self, course_id: str, assignment_id: str, link: str, file_id: str) -> dict:
         try:
             # Step 1: Get student submission ID
             submissions = self.service.courses().courseWork().studentSubmissions().list(
@@ -173,7 +181,7 @@ Submit a link to your github repo. A README file should be submitted as mentione
             ).execute()
 
             if 'studentSubmissions' not in submissions or not submissions['studentSubmissions']:
-                raise HTTPException(status_code=404, detail="No submission found for this user.")
+                return {"success": False, "error": "No submission found for this user."}
 
             submission = submissions['studentSubmissions'][0]
             submission_id = submission['id']
@@ -204,17 +212,22 @@ Submit a link to your github repo. A README file should be submitted as mentione
                         body=remove_body
                     ).execute()
                     print("Existing attachments removed.")
+                    
+            print("Area 1: ", file_id)
 
             # Step 2: Modify attachments (add the link)
             modify_body = {
-                "addAttachments": [
-                    {
-                        "link": {
-                            "url": link
-                        }
-                    }
-                ]
+    "addAttachments": [
+        {
+            "driveFile": {
+                "id": file_id,  # from your uploaded file
             }
+        }
+    ]
+}
+
+            print("Area 2: ", modify_body)
+
 
             result = self.service.courses().courseWork().studentSubmissions().modifyAttachments(
                 courseId=course_id,
@@ -233,29 +246,24 @@ Submit a link to your github repo. A README file should be submitted as mentione
             ).execute()
 
             print("✅ Submission turned in successfully.")
+            return {"success": True, "message": "Submission turned in successfully."}
 
         except Exception as e:
             print("Exception in submit_to_classroom:", repr(e))
-            raise HTTPException(status_code=500, detail=f"Classroom submission failed: {str(e)}")
-
+            return {"success": False, "error": f"Classroom submission failed: {str(e)}"}
 
 gcr_client = GoogleClassroomClient()
 
 # === Endpoints ===
 @app.post("/submit/classroom")
-async def classroom_submit(course_id: str, assignment_id: str, link: str):
-    print(course_id, assignment_id, link)
+async def classroom_submit(course_id: str, assignment_id: str, files: dict = Body(...)):
+    print(course_id, assignment_id, files.keys())
     try:
-        # if not os.path.exists("token.json"):
-        #     raise HTTPException(status_code=403, detail="Not authenticated")
-
-        # creds = Credentials.from_authorized_user_file("token.json", gcr_client.SCOPES)
-        gcr_client.submit_to_classroom(course_id, assignment_id, link)
-
-        return {
-            "status": "classroom_success",
-            "assignment_url": f"https://classroom.google.com/c/{course_id}/a/{assignment_id}"
-        }
+        drive_link, file_id = gcr_client.upload_to_drive(files)
+        if drive_link is None:
+            return {"success": False, "error": file_id}  # file_id contains the error message here
+        print("Uploaded to drive:", drive_link)
+        return gcr_client.submit_to_classroom(course_id, assignment_id, drive_link, file_id)
     except HTTPException as e:
         raise e
     except Exception as e:

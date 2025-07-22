@@ -38,6 +38,7 @@ async def github_submit(req: GitPushRequest):
         github=GitHub(github_name, github_token)
         success, error = github.create_repo(req.repo_name)
         if not success:
+            print("Error in creating repo:", error)
             return {"error": error}
 
         for filename, code in req.code_files.items():
@@ -47,10 +48,13 @@ async def github_submit(req: GitPushRequest):
         
         github_link =f"https://github.com/{github_name}/{req.repo_name}"
         gcr_client = GoogleClassroomClient(info=req.info)
-        gcr_client.submit_to_classroom(req.course_id, req.assignment_id, github_link)
-        return {
-            "message": "Submitted github linkto Google Classroom successfully"
-        }
+        print("Uploading to drive")
+        drive_link, file_id = gcr_client.upload_to_drive(req.code_files, req.repo_name)
+        print("Uploaded to drive:", drive_link, file_id)
+        if drive_link is None:
+            return {"success": False, "error": file_id}
+        return gcr_client.submit_to_classroom(req.course_id, req.assignment_id, file_id)
+        
     except Exception as e:
         return {"error": str(e)}
 

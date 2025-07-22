@@ -470,9 +470,11 @@ async function loginWithGoogle() {
     const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
     const TOKEN_PATH = path.join(__dirname, 'token.json');
     const SCOPES = [
-        'https://www.googleapis.com/auth/classroom.courses.readonly',
-        'https://www.googleapis.com/auth/classroom.rosters',
-        'https://www.googleapis.com/auth/classroom.coursework.me'
+        "https://www.googleapis.com/auth/classroom.courses.readonly",
+            "https://www.googleapis.com/auth/classroom.rosters.readonly",
+            "https://www.googleapis.com/auth/classroom.coursework.me",
+            "https://www.googleapis.com/auth/drive.file",
+            "https://www.googleapis.com/auth/classroom.coursework.students"
     ];
 
     let credentials;
@@ -497,7 +499,7 @@ async function loginWithGoogle() {
     const authUrl = oAuth2Client.generateAuthUrl({
         access_type: 'offline',
         scope: SCOPES,
-        prompt: 'consent',
+        prompt: 'consent select_account',
     });
     vscode.env.openExternal(vscode.Uri.parse(authUrl));
 

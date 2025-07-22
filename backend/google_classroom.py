@@ -3,6 +3,9 @@ from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+import io
+import zipfile
+from googleapiclient.http import MediaIoBaseUpload
 
 class GoogleClassroomClient:
     def __init__(self, info: str):
@@ -10,9 +13,11 @@ class GoogleClassroomClient:
         # self.token_path = token_path
         
         self.SCOPES = [
-    "https://www.googleapis.com/auth/classroom.courses.readonly",                  # Read course metadata
-    "https://www.googleapis.com/auth/classroom.rosters",
-    "https://www.googleapis.com/auth/classroom.coursework.me"
+    "https://www.googleapis.com/auth/classroom.courses.readonly",
+            "https://www.googleapis.com/auth/classroom.rosters.readonly",
+            "https://www.googleapis.com/auth/classroom.coursework.me",
+            "https://www.googleapis.com/auth/drive.file",
+            "https://www.googleapis.com/auth/classroom.coursework.students"
 ]
         # Load token if it exists
         if info and info.strip():
@@ -33,7 +38,27 @@ class GoogleClassroomClient:
             print(f"❌ Error building service: {e}")
             self.service = None
             
-    def submit_to_classroom(self, course_id: str, assignment_id: str, link: str) -> dict:
+    def upload_to_drive(self, files_dict: dict, zip_name: str = "submission.zip") -> tuple:
+        try:
+            # Create in-memory zip
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for filename, filedata in files_dict.items():
+                    zip_file.writestr(filename, filedata)
+            zip_buffer.seek(0)
+            drive_service = build('drive', 'v3', credentials=self.creds)
+            file_metadata = {'name': zip_name}
+            media = MediaIoBaseUpload(zip_buffer, mimetype='application/zip', resumable=True)
+            file = drive_service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields='id, webViewLink'
+            ).execute()
+            return file['webViewLink'], file['id']
+        except Exception as e:
+            return None, f"Drive upload failed: {str(e)}"
+            
+    def submit_to_classroom(self, course_id: str, assignment_id: str, file_id: str) -> dict:
         try:
             # Step 1: Get student submission ID
             submissions = self.service.courses().courseWork().studentSubmissions().list(
@@ -77,14 +102,15 @@ class GoogleClassroomClient:
 
             # Step 2: Modify attachments (add the link)
             modify_body = {
-                "addAttachments": [
-                    {
-                        "link": {
-                            "url": link
-                        }
-                    }
-                ]
+    "addAttachments": [
+        {
+            "driveFile": {
+                "id": file_id  # just the ID of the file, no URL
             }
+        }
+    ]
+}
+
 
             result = self.service.courses().courseWork().studentSubmissions().modifyAttachments(
                 courseId=course_id,
