@@ -28,7 +28,8 @@ function transformGCRDataToTree(gcrData) {
                     assignmentId: assignment.assignmentId,
                     dueDate: assignment.dueDate,
                     dueTime: assignment.dueTime,
-                    submissionState: assignment.submissionState
+                    submissionState: assignment.submissionState,
+                    gradeInfo: assignment.gradeInfo 
                 }))
             }
             // You can add Resources/People here if backend provides them
@@ -423,7 +424,9 @@ function activate(context) {
                 let firstLine = '';
                 // console.log(node.dueDate);
                 // console.log(node.dueTime);
-                if (!node.dueDate || !node.dueTime) {
+                if (!node.dueDate || !node.dueTime || 
+                !node.dueDate.year || !node.dueDate.month || !node.dueDate.day ||
+                !node.dueTime.hours || !node.dueTime.minutes) {
                     firstLine = '<span style="color: orange; font-weight: bold;">Due date is not mentioned</span>';
                 } else {
                     // Compose a JS Date object from dueDate and dueTime
@@ -450,6 +453,15 @@ function activate(context) {
                 if (node.submissionState === 'TURNED_IN') {
                     secondLine = '<span style="color: green; font-weight: bold;">Already submitted</span>';
                 }
+                if (node.submissionState === 'RETURNED') {
+                secondLine = '<span style="color: blue; font-weight: bold;">Evaluated</span>';
+                
+                // Add grade information if available
+                if (node.gradeInfo && node.gradeInfo.assignedGrade !== undefined) {
+                    const maxPoints = node.gradeInfo.maxPoints || '?';
+                    secondLine += `<br><span style="font-weight: bold; color: blue;">Grade: ${node.gradeInfo.assignedGrade}/${maxPoints}`;
+                }
+            }
                 let content = node.description;
                 if (firstLine) {
                     content = `${firstLine}${secondLine ? '<br>' + secondLine : ''}<br><br>${content}`;

@@ -190,16 +190,14 @@ class GoogleClassroomClient:
             return []
 
         try:
-            # Fetch all coursework for the course
             response = self.service.courses().courseWork().list(courseId=course_id).execute()
             coursework = response.get("courseWork", [])
-
             result = []
 
             for work in coursework:
                 course_work_id = work["id"]
-
-                # Fetch the student's submission for this assignment
+                
+                # Fetch student submission
                 submission_response = self.service.courses().courseWork().studentSubmissions().list(
                     courseId=course_id,
                     courseWorkId=course_work_id,
@@ -207,24 +205,31 @@ class GoogleClassroomClient:
                 ).execute()
 
                 submissions = submission_response.get("studentSubmissions", [])
-                submission_state = submissions[0]["state"] if submissions else "UNKNOWN"
-
+                submission = submissions[0] if submissions else None
+                
+                # Initialize grade info
+                grade_info = None
+                if submission and submission.get("state") == "RETURNED":
+                    grade_info = {
+                        "assignedGrade": submission.get("assignedGrade"),
+                        "draftGrade": submission.get("draftGrade"),
+                        "maxPoints": work.get("maxPoints")
+                    }
+                print(grade_info)
                 result.append({
                     "assignmentId": work.get("id", ""),
                     "title": work.get("title", ""),
-                    "description": work.get("description", "No description given of {work.title}"),
+                    "description": work.get("description", "No description given"),
                     "dueDate": work.get("dueDate", {}),
                     "dueTime": work.get("dueTime", {}),
-                    "submissionState": submission_state
+                    "submissionState": submission.get("state") if submission else "UNKNOWN",
+                    "gradeInfo": grade_info
                 })
-                
 
             return result
-
         except Exception as e:
             print(f"❌ Failed to fetch assignments for course {course_id}: {e}")
             return None
-
     def join_course_as_student(self, course_id, enrollment_code):
         """
         Enroll the authenticated student into a Google Classroom course.
