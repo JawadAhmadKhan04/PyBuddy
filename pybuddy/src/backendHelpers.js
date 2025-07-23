@@ -434,6 +434,25 @@ async function deleteGithubCredentialsFromBackend(username) {
     }
 }
 
+/**
+ * Joins a Google Classroom using either a link or codes.
+ * @param {Object} params - { course_id, enrollment_code, info }
+ * @returns {Promise<Object>} - Backend response
+ */
+async function joinClassroomToBackend(params) {
+    try {
+        const response = await fetch(`${backend_url}/join_course`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params)
+        });
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        return { error: error.message };
+    }
+}
+
 // Fetch the username from the backend
 async function getUserName(tokenJson = globalTokenJson) {
     try {
@@ -543,5 +562,6 @@ module.exports = {
     submitAssignmentToGithub,
     loginWithGoogle,
     saveGithubCredentialsToBackend,
-    deleteGithubCredentialsFromBackend
+    deleteGithubCredentialsFromBackend,
+    joinClassroomToBackend
 };

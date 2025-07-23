@@ -64,6 +64,11 @@
         "command": "pybuddy.setGithubCredentials",
         "title": "Set GitHub Credentials",
         "icon": "$(mark-github)"
+      },
+      {
+        "command": "pybuddy.joinClassroom",
+        "title": "Join Google Classroom",
+        "icon": "$(add)"
       }
     ],
     "viewsContainers": {
@@ -113,7 +118,7 @@
         {
           "command": "pybuddy.setGithubCredentials",
           "when": "pybuddyLoggedIn && view == pybuddy-classroom-tree",
-          "group": "navigation@0",
+          "group": "navigation@2",
           "icon": "$(mark-github)"
         },
         {
@@ -124,12 +129,12 @@
         {
           "command": "pybuddy.addApiKey",
           "when": "pybuddyLoggedIn && view == pybuddy-classroom-tree",
-          "group": "navigation@2"
+          "group": "navigation@3"
         },
         {
           "command": "pybuddy.logout",
           "when": "pybuddyLoggedIn && view == pybuddy-classroom-tree",
-          "group": "navigation@3"
+          "group": "navigation@4"
         },
         {
           "command": "pybuddy.clearHints",
@@ -140,6 +145,11 @@
           "command": "pybuddy.clearQuestions",
           "when": "view == pybuddy-questions",
           "group": "navigation"
+        },
+        {
+          "command": "pybuddy.joinClassroom",
+          "when": "pybuddyLoggedIn && view == pybuddy-classroom-tree",
+          "group": "navigation@0"
         }
       ]
     }

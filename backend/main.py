@@ -6,7 +6,8 @@ from file_based_hints import FileBasedHints
 from typing import Dict
 from google_classroom import GoogleClassroomClient, get_creds
 from git import GitHub
-from models import GenerateHintsRequest, AddApiKeyRequest, AddGithubRequest, DeleteGithubRequest, StartingUpRequest, GitPushRequest
+from models import GenerateHintsRequest, AddApiKeyRequest, AddGithubRequest, DeleteGithubRequest, StartingUpRequest, GitPushRequest, JoinCourseRequest
+import base64
 
 app = FastAPI()
 
@@ -63,6 +64,18 @@ async def add_api_key(request: AddApiKeyRequest):
     db = Database()
     db.set_api(request.username, request.api_key)
     return {"message": "API key added successfully"}
+
+@app.post("/join_course")
+async def join_course(request: JoinCourseRequest):
+    course_id = request.course_id
+    print("course_id", course_id)
+    print("enrollment_code", request.enrollment_code)
+    # If course_id is not all digits, convert to base64
+    if not course_id.isdigit():
+        course_id = base64.b64decode(course_id).decode("utf-8")
+    gcr = GoogleClassroomClient(info=request.info)
+    print("course_id changed", course_id)
+    return gcr.join_course_as_student(course_id, request.enrollment_code)
 
 @app.post("/add_github")
 async def add_github(request: AddGithubRequest):

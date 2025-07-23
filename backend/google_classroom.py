@@ -9,7 +9,7 @@ from googleapiclient.http import MediaIoBaseUpload
 
 SCOPES = [
     "https://www.googleapis.com/auth/classroom.courses.readonly",
-            "https://www.googleapis.com/auth/classroom.rosters.readonly",
+            "https://www.googleapis.com/auth/classroom.rosters",
             "https://www.googleapis.com/auth/classroom.coursework.me",
             "https://www.googleapis.com/auth/drive.file",
             "https://www.googleapis.com/auth/classroom.coursework.students"
@@ -225,6 +225,31 @@ class GoogleClassroomClient:
             print(f"❌ Failed to fetch assignments for course {course_id}: {e}")
             return None
 
+    def join_course_as_student(self, course_id, enrollment_code):
+        """
+        Enroll the authenticated student into a Google Classroom course.
+
+        Parameters:
+            service (googleapiclient.discovery.Resource): Authenticated Classroom API service.
+            course_id (str): The ID of the course to join.
+            enrollment_code (str): The enrollment code provided by the teacher.
+
+        Returns:
+            dict: The response from the API (student enrollment details).
+        """
+        try:
+            student = self.service.courses().students().create(
+                courseId=course_id,
+                enrollmentCode=enrollment_code,
+                body={"userId": "me"}
+            ).execute()
+
+            print(f"✅ Successfully joined course: {student['courseId']}")
+            return {"message": "Successfully joined course"}
+
+        except Exception as e:
+            print(f"❌ Failed to join course: {e}")
+            return {"error": "Failed to join course"}
 
 
 

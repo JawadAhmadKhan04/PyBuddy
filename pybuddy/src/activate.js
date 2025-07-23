@@ -7,7 +7,7 @@ const ChatProvider = require('./chatProvider');
 const QuestionProvider = require('./questionProvider');
 const ClassroomTreeProvider = require('./classroomTreeProvider');
 
-const { handleLoginFlow, handleGenerateHints, handleShowHints, handleGenerateQuestions, handleAddApiKey, backendLogout, fetchGCRData, getUserName, submitAssignmentToGithub, loginWithGoogle, saveGithubCredentialsToBackend, deleteGithubCredentialsFromBackend } = require('./backendHelpers');
+const { handleLoginFlow, handleGenerateHints, handleShowHints, handleGenerateQuestions, handleAddApiKey, backendLogout, fetchGCRData, getUserName, submitAssignmentToGithub, loginWithGoogle, saveGithubCredentialsToBackend, deleteGithubCredentialsFromBackend, joinClassroomToBackend } = require('./backendHelpers');
 const { openFolderInExplorer } = require('./fileHelpers');
 
 /**
@@ -297,7 +297,7 @@ function activate(context) {
                     vscode.window.showWarningMessage('GitHub token is required.');
                     return;
                 }
-                vscode.window.showInformationMessage('GitHub credentials saved!');
+                // vscode.window.showInformationMessage('GitHub credentials saved!');
                 // Send credentials to backend as well
                 const pybuddyUsername = context.globalState.get('pybuddy.username', '');
                 const result = await saveGithubCredentialsToBackend({
@@ -326,6 +326,83 @@ function activate(context) {
                     vscode.window.showErrorMessage('Failed to delete GitHub credentials.');
                 }
             }
+        }),
+        vscode.commands.registerCommand('pybuddy.joinClassroom', async () => {
+            const choice = await vscode.window.showQuickPick(
+                [
+                    { label: 'Enter Link', value: 'link' },
+                    { label: 'Enter Codes', value: 'codes' }
+                ],
+                { placeHolder: 'How do you want to join the classroom?', ignoreFocusOut: true }
+            );
+            if (!choice) return;
+
+            // Prepare payload
+            let payload = {
+                course_id: '',
+                enrollment_code: '',
+                info: globalTokenJson
+            };
+
+            if (choice.value === 'link') {
+                const link = await vscode.window.showInputBox({
+                    prompt: 'Enter the Google Classroom joining link',
+                    ignoreFocusOut: true
+                });
+                if (!link) {
+                    vscode.window.showWarningMessage('Joining link is required.');
+                    return;
+                }
+                // Extract course_id and enrollment_code from the link
+                const courseIdMatch = link.match(/\/c\/([^/?]+)/);
+                const enrollmentCodeMatch = link.match(/[?&]cjc=([^&]+)/);
+                if (!courseIdMatch || !enrollmentCodeMatch) {
+                    vscode.window.showWarningMessage('Invalid Google Classroom link format.');
+                    return;
+                }
+                payload.course_id = courseIdMatch[1];
+                payload.enrollment_code = enrollmentCodeMatch[1];
+            } else if (choice.value === 'codes') {
+                const courseId = await vscode.window.showInputBox({
+                    prompt: 'Enter the Course ID',
+                    ignoreFocusOut: true
+                });
+                if (!courseId) {
+                    vscode.window.showWarningMessage('Course ID is required.');
+                    return;
+                }
+                const enrollmentCode = await vscode.window.showInputBox({
+                    prompt: 'Enter the Enrollment Code',
+                    ignoreFocusOut: true
+                });
+                if (!enrollmentCode) {
+                    vscode.window.showWarningMessage('Enrollment code is required.');
+                    return;
+                }
+                payload.course_id = courseId;
+                payload.enrollment_code = enrollmentCode;
+            }
+
+            // Call backend once with the prepared payload
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: 'Joining classroom...',
+                cancellable: false
+            }, async () => {
+                const result = await joinClassroomToBackend(payload);
+                if (result.error) {
+                    vscode.window.showErrorMessage("Failed to join course");
+                } else {
+                    // Refresh Google Classroom data
+                    classroomTreeProvider.setLoading(true);
+                    const gcrData = await fetchGCRData(globalTokenJson);
+                    const treeData = transformGCRDataToTree(gcrData);
+                    setParentReferences(treeData);
+                    classroomTreeProvider.setData(treeData);
+                    classroomTreeProvider.setLoading(false);
+                    vscode.window.showInformationMessage('Course joined');
+                }
+            });
         }),
 	);
 
@@ -590,7 +667,7 @@ function activate(context) {
                         questionProvider._webviewView.webview.postMessage({ type: 'enableSubmitButton' });
                     }
                 } else if (result && result.message) {
-                    vscode.window.showInformationMessage(`Assignment submitted! ${result.message}`);
+                    // vscode.window.showInformationMessage(`Assignment submitted! ${result.message}`);
                     // Automatically refresh GCR data
                     classroomTreeProvider.setLoading(true);
                                 // Also clear the question panel so it shows the default message

@@ -28,7 +28,7 @@ class GoogleClassroomClient:
         self.token_path = token_path
         self.SCOPES = [
             "https://www.googleapis.com/auth/classroom.courses.readonly",
-            "https://www.googleapis.com/auth/classroom.rosters.readonly",
+            "https://www.googleapis.com/auth/classroom.rosters",
             "https://www.googleapis.com/auth/classroom.coursework.me",
             "https://www.googleapis.com/auth/drive.file",
             "https://www.googleapis.com/auth/classroom.coursework.students"
@@ -63,6 +63,33 @@ class GoogleClassroomClient:
             return file['webViewLink'], file['id']
         except Exception as e:
             return None, f"Drive upload failed: {str(e)}"
+        
+    def join_course_as_student(self, course_id, enrollment_code):
+        """
+        Enroll the authenticated student into a Google Classroom course.
+
+        Parameters:
+            service (googleapiclient.discovery.Resource): Authenticated Classroom API service.
+            course_id (str): The ID of the course to join.
+            enrollment_code (str): The enrollment code provided by the teacher.
+
+        Returns:
+            dict: The response from the API (student enrollment details).
+        """
+        try:
+            student = self.service.courses().students().create(
+                courseId=course_id,
+                enrollmentCode=enrollment_code,
+                body={"userId": "me"}
+            ).execute()
+
+            print(f"✅ Successfully joined course: {student['courseId']}")
+            return {"message": "Successfully joined course"}
+
+        except Exception as e:
+            print(f"❌ Failed to join course: {e}")
+            return {"error": "Failed to join course"}
+
     
     def create_assignment(self, course_id: str):
     # Load credentials (make sure you've done OAuth flow and saved token.json)
@@ -77,40 +104,16 @@ class GoogleClassroomClient:
         # service = build('classroom', 'v1', credentials=creds)
         try:
             assignment = {
-            "title": "Minimum Moves to Make Array Equal",
+            "title": "Experiment 101",
             "description": """
-Problem:
-You are given an array of n integers. In one move, you can increment any element by 1 or decrement any element by 1. Your task is to make all elements of the array equal using the minimum number of moves.
-
-Input:
-
-An integer n (1 ≤ n ≤ 10⁵)
-
-An array of n integers a₁, a₂, ..., aₙ
-
-Output:
-
-The minimum number of moves required.
-
-Example:
-Input: n = 5, a = [1, 2, 3, 4, 5]
-Output: 6
+Experiment 101
 """,
             "materials": [],
             "state": "PUBLISHED",
             "workType": "ASSIGNMENT",
             "assignment": {},  # 🔥 Required when workType is ASSIGNMENT
 
-            "maxPoints": 100,
-            "dueDate": {
-                "year": 2025,
-                "month": 7,
-                "day": 30
-            },
-            "dueTime": {
-                "hours": 23,
-                "minutes": 59
-            }
+            "maxPoints": 100
         }
 
             response = self.service.courses().courseWork().create(
@@ -248,6 +251,10 @@ async def classroom_create_assignment(course_id: str):
 @app.post("/classroom/get_assignments")
 async def classroom_get_assignments(course_id: str):
     return gcr_client.get_assignments(course_id)
+
+@app.post("/classroom/join_course")
+async def classroom_join_course(course_id: str, enrollment_code: str):
+    return gcr_client.join_course_as_student(course_id, enrollment_code)
 
 @app.post("/classroom/login")
 async def classroom_login():

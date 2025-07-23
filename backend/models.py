@@ -28,3 +28,8 @@ class GitPushRequest(BaseModel):
     assignment_id: str
     code_files: Dict[str, str]
     info: str
+
+class JoinCourseRequest(BaseModel):
+    course_id: str = None
+    enrollment_code: str = None
+    info: str
