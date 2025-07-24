@@ -454,12 +454,16 @@ function activate(context) {
                     secondLine = '<span style="color: green; font-weight: bold;">Already submitted</span>';
                 }
                 if (node.submissionState === 'RETURNED') {
-                secondLine = '<span style="color: blue; font-weight: bold;">Evaluated</span>';
-                
+                secondLine = '<span style="font-weight: bold;color:blue;">Evaluated</span>';
                 // Add grade information if available
-                if (node.gradeInfo && node.gradeInfo.assignedGrade !== undefined) {
+                if (!node.gradeInfo.assignedGrade){
                     const maxPoints = node.gradeInfo.maxPoints || '?';
-                    secondLine += `<br><span style="font-weight: bold; color: blue;">Grade: ${node.gradeInfo.assignedGrade}/${maxPoints}`;
+                    const Grade= '-';
+                    secondLine += `<br><span style="font-weight: bold;">Grade: ${Grade}/${maxPoints}`;
+                }
+                else if (node.gradeInfo && node.gradeInfo.assignedGrade !== undefined) {
+                    const maxPoints = node.gradeInfo.maxPoints || '?';
+                    secondLine += `<br><span style="font-weight: bold;">Grade: ${node.gradeInfo.assignedGrade}/${maxPoints}`;
                 }
             }
                 let content = node.description;
@@ -634,8 +638,7 @@ function activate(context) {
             const confirm = await vscode.window.showWarningMessage(
                 'Are you sure you want to submit? You will not be allowed to submit again.',
                 { modal: true },
-                'Submit',
-                'Cancel'
+                'Submit'
             );
             if (confirm !== 'Submit') {
                 vscode.window.showInformationMessage('Submission cancelled.');
