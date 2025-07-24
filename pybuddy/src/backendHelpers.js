@@ -179,7 +179,7 @@ function handleGenerateHints(chatProvider, context) {
                         const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
                         if (fileNameIndex > 0) {
                             const folderPathDisplay = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
-                            hintMessage = `💡 Hint for ${folderPathDisplay}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
+                            hintMessage = `💡 Hint \n\n+Topic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
                         } else {
                             // Fallback to just the filename if path structure is different
                             hintMessage = `💡 Hint for ${activeEditor.document.fileName.split('/').pop()}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;

@@ -55,6 +55,16 @@ class FileBasedHints:
 
 == Task ==
 Based on the problem and current code, provide one high-quality, structured hint in JSON format using this schema:
+Provide exactly one JSON object with these fields:
+- hint_text: Clear, actionable guidance for the next step (no code)
+- hint_topic: 1-3 word topic tag (e.g., 'loops', 'recursion')
+- concepts: Dictionary of key terms with simple definitions
+
+IMPORTANT:
+1. Return ONLY the raw JSON object
+2. No Markdown formatting (no ```json or ```)
+3. No additional explanations
+4. Valid JSON syntax only
 
 {{
   "hint_text": "<a clear, helpful, and actionable explanation>",
@@ -88,6 +98,8 @@ Based on the problem and current code, provide one high-quality, structured hint
 - Include a dictionary of all programming terms, structures, or logic ideas you used in your hint.
 - For each concept, give a simple, clear, **beginner-level explanation**.
 - If your hint says “base case,” the concept for "base case" must explain what that is.
+- Give at least 3 concepts.
+- Keep the concept description informal and casual so that it is easy for the user to understand.
 - Avoid vague or advanced language — make it easy for a student to grasp.
 
 == Output ==
