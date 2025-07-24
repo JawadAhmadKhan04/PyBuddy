@@ -17,6 +17,7 @@ class FileBasedHints:
     class Hint(BaseModel):
         hint_text: str
         hint_topic: str
+        concepts: dict[str, str]
     
     def __init__(self) -> None:
         """
@@ -49,64 +50,61 @@ class FileBasedHints:
 == Problem ==
 {question_data}
 
-
 == Student's Current Code ==
 {current_code}
 
 == Task ==
 Based on the problem and current code, provide one high-quality, structured hint in JSON format using this schema:
 
-Keep in mind you have to generate hints by carefully analyzing the current code and the question and check whether the current code is properly formatted without any errors.
-Also you don't have to be far fetched just keep it line by line and give hint for the next line.
-You have to also kepe this in mind that you not only have to give hints but also guide the user, so be careful while giving hints, your hints must be such that the user can easily get to the solution and learn
-You can give user built in python functions required for a specific task in your hints
 {{
   "hint_text": "<a clear, helpful, and actionable explanation>",
-  "hint_topic": "<a short topic tag like 'loops', 'API', 'data cleaning', 'indexing', 'syntax', 'modularization', etc>"
+  "hint_topic": "<a short topic tag like 'loops', 'API', 'data cleaning', 'indexing', 'syntax', 'modularization', etc>",
+  "concepts": {{
+    "<concept1>": "<a short, beginner-friendly definition of concept1, based on how it relates to this hint>",
+    "<concept2>": "<definition of concept2>",
+    ...
+  }}
 }}
 
-- Note that the hints that you will provide must move from generic to specific.
-- Also you must carefully analyze the instructions, rubrics, links and anything given in the question and your hints must revolve around them.
-- You must also give simple hints without complicating them so that anyone can understand
+== Goals ==
+- Think line-by-line: guide only the **next logical step** toward the solution.
+- Always **analyze the student’s current code** and **match it with the instructions** from the problem.
+- Keep the user from drifting off-topic; redirect them if they do.
+- If the student is stuck, guide them using concepts, not code.
+- Help the student learn — don’t give away full solutions or jump steps.
+
 == Rules for hint_text ==
-- Be clear, concise, and helpful for the next immediate step don't make it too much detailed.
+- Be clear, actionable, and limited to the **next step**.
 - Do NOT include any code.
-- If a task requires a built in function provide that to the user
-- If a taske requires any concept provide that to the user in your hints
-- Clearly explain any logic or syntax mistake if present.
-- Guide in built in functions if user gets stuck, you must keep in mind they are a beginner
-- Guide formatting improvements if output is confusing or non-standard.
-- Mention missing imports if needed.
-- If the task is from an assignment module (e.g., EDA, API, NLP), align the hint to the rubric.
-- Do not repeat the problem or recap existing code.
-- If the code is complex, recommend using functions or classes.
-- If already solved, say so — no extra features.
-- If the user asks for a hint again on the same step, make it simpler and more direct.
+- You may mention built-in Python functions, but don't give code examples.
+- If the student is missing a key structure (like a loop or base case), tell them that and why it's needed.
+- Mention missing imports or incorrect logic if applicable.
+- If the answer is already fully correct, return a positive message confirming completion.
 
 == Rules for hint_topic ==
-- Use lowercase, 1–3 word topic summaries.
+- Use 1–3 lowercase words like: 'loops', 'recursion', 'list comprehension', 'syntax', 'error handling', 'logic', etc.
+
+== Rules for concepts ==
+- Include a dictionary of all programming terms, structures, or logic ideas you used in your hint.
+- For each concept, give a simple, clear, **beginner-level explanation**.
+- If your hint says “base case,” the concept for "base case" must explain what that is.
+- Avoid vague or advanced language — make it easy for a student to grasp.
 
 == Output ==
-Return only a single valid JSON object conforming to the above schema.
-Do NOT include any extra explanation or markdown.
-If nothing further is needed, return a hint_text that confirms the solution is complete and correct.
+Return a **single valid JSON object** only — do not include explanations, markdown, or anything else outside the JSON.
 
-Let's take it step by step."""
+Let’s take it step by step."""
 
-
-    
             os.environ["GEMINI_API_KEY"] = api_key
             self.model = "gemini-2.5-flash"
             self.llm = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
             response = self.llm.models.generate_content(
                 model=self.model,
-                contents=[prompt],
-                config={
-                    "response_mime_type": "application/json",
-                    "response_schema": self.Hint,
-                }
+                contents=[{
+                    "role": "user",
+                    "parts": [{"text": prompt}]
+                }]
             )
-            
             try:
                 hint_data = json.loads(response.text)
                 print("Generated hint:", hint_data)
