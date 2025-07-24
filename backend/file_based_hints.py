@@ -55,11 +55,17 @@ class FileBasedHints:
 
 == Task ==
 Based on the problem and current code, provide one high-quality, structured hint in JSON format using this schema:
+Provide exactly one JSON object with these fields:
+- hint_text: Clear, actionable guidance for the next step (no code)
+- hint_topic: 1-3 word topic tag (e.g., 'loops', 'recursion')
+- concepts: Dictionary of key terms with simple definitions
 
-Keep in mind you have to generate hints by carefully analyzing the current code and the question and check whether the current code is properly formatted without any errors.
-Also you don't have to be far fetched just keep it line by line and give hint for the next line.
-You have to also kepe this in mind that you not only have to give hints but also guide the user, so be careful while giving hints, your hints must be such that the user can easily get to the solution and learn
-You can give user built in python functions required for a specific task in your hints
+IMPORTANT:
+1. Return ONLY the raw JSON object
+2. No Markdown formatting (no ```json or ```)
+3. No additional explanations
+4. Valid JSON syntax only
+
 {{
   "hint_text": "<a clear, helpful, and actionable explanation>",
   "hint_topic": "<a short topic tag like 'loops', 'API', 'data cleaning', 'indexing', 'syntax', 'modularization', etc>"
@@ -84,7 +90,15 @@ You can give user built in python functions required for a specific task in your
 - If the user asks for a hint again on the same step, make it simpler and more direct.
 
 == Rules for hint_topic ==
-- Use lowercase, 1–3 word topic summaries.
+- Use 1–3 lowercase words like: 'loops', 'recursion', 'list comprehension', 'syntax', 'error handling', 'logic', etc.
+
+== Rules for concepts ==
+- Include a dictionary of all programming terms, structures, or logic ideas you used in your hint.
+- For each concept, give a simple, clear, **beginner-level explanation**.
+- If your hint says “base case,” the concept for "base case" must explain what that is.
+- Give at least 3 concepts.
+- Keep the concept description informal and casual so that it is easy for the user to understand.
+- Avoid vague or advanced language — make it easy for a student to grasp.
 
 == Output ==
 Return only a single valid JSON object conforming to the above schema.
