@@ -178,11 +178,21 @@ function handleGenerateHints(chatProvider, context) {
                         const pathParts = filePath.split('\\');
                         const fileNameIndex = pathParts.findIndex(part => part.startsWith('question_'));
                         if (fileNameIndex > 0) {
-                            const folderPathDisplay = pathParts.slice(fileNameIndex - 1, fileNameIndex + 1).join('\\');
-                            hintMessage = `💡 Hint for ${folderPathDisplay}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
+                            // Extract the assignment folder name (parent of the file)
+                            const assignmentName = pathParts[fileNameIndex - 1].replace(/_/g, '');
+                            hintMessage = `💡 Hint for ${assignmentName}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
                         } else {
-                            // Fallback to just the filename if path structure is different
-                            hintMessage = `💡 Hint for ${activeEditor.document.fileName.split('/').pop()}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
+                            // Fallback to just the parent folder name if possible
+                            const assignmentName = pathParts.length > 1 ? pathParts[pathParts.length - 2].replace(/_/g, '') : activeEditor.document.fileName.split('/').pop();
+                            hintMessage = `💡 Hint for ${assignmentName}\n\nTopic: ${data.hint.hint_topic}\n\n${data.hint.hint_text}`;
+                        }
+                        // Add concepts if present
+                        
+                        if (data.hint.concepts && typeof data.hint.concepts === 'object' && Object.keys(data.hint.concepts).length > 0) {
+                            hintMessage += `\n\nConcepts:`;
+                            for (const [conceptTopic, conceptDesc] of Object.entries(data.hint.concepts)) {
+                                hintMessage += `\n- ${conceptTopic}: ${conceptDesc}`;
+                            }
                         }
                         // Store hint in fileHints
                         if (!fileHints[currentFilePath]) {

@@ -645,7 +645,7 @@ function activate(context) {
                 questionProvider._webviewView.webview.postMessage({ type: 'disableSubmitButton' });
             }
             const confirm = await vscode.window.showWarningMessage(
-                'Are you sure you want to submit? You will not be allowed to submit again.',
+                'Are you sure you want to submit? You will not be allowed to submit again.\n\nYour previous submissions will not be affected, this submission will be added on to the previous one.\n\nYour assignment will be submitted as a zip file.',
                 { modal: true },
                 'Submit'
             );
