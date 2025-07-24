@@ -57,53 +57,6 @@ function handleAddApiKey(context) {
     }
 }
 
-async function handleLoginFlow() {
-    await vscode.window.withProgress(
-        {
-            location: vscode.ProgressLocation.Notification,
-            title: 'Loading...',
-            cancellable: false
-        },
-            async (progress) => {
-            try {
-                const file_path = "testing_pdfs/QuestCamp GCR assignment examples.pdf";
-                // Extract the file name without extension
-                const fileName = file_path.split('/').pop();  // "QuestCamp GCR assignment examples.pdf"
-                const folder_name = fileName.substring(0, fileName.lastIndexOf('.'));
-                console.log(folder_name); // Output: QuestCamp GCR assignment examples
-                const file_creation_method = "Create files on auto"
-                const endpoint = `${backend_url}/preprocessing_file`
-                const requestBody = {
-                    file_path: file_path,
-                    folder_name: folder_name,
-                    file_creation_method: file_creation_method
-                }
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-                if (!response.ok) {
-                    throw new Error(`Backend returned status ${response.status}`);
-                }
-                const data = await response.json();
-                if (data.folder_path) {
-                    await openFolderInExplorer(data.folder_path);
-                } else if (data.error) {
-                    vscode.window.showErrorMessage('Error: ' + data.error);
-                } else {
-                    vscode.window.showWarningMessage('Folder was created but no folder path was returned by the backend.');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                vscode.window.showErrorMessage(`Backend request failed: ${error.message}`);
-            }
-        }
-    );
-}
-
 async function backendLogout(tokenJson = globalTokenJson) {
     try {
         const response = await fetch(`${backend_url}/logout`, {
@@ -243,8 +196,9 @@ function handleGenerateHints(chatProvider, context) {
                                 content: hintMessage 
                             });
                         }
-                    } catch (error) {
-                        vscode.window.showErrorMessage('Failed to generate hints: ' + error.message);
+                        
+                    }catch (error) {
+                        
                     }
                 }
             );
@@ -551,12 +505,11 @@ async function loginWithGoogle() {
 }
 
 module.exports = {
-	handleLoginFlow,
-	handleGenerateHints,
-	handleShowHints,
-	handleGenerateQuestions,
 	handleAddApiKey,
     backendLogout,
+    handleShowHints,
+	handleGenerateHints,
+	handleGenerateQuestions,
     fetchGCRData,
     getUserName,
     submitAssignmentToGithub,

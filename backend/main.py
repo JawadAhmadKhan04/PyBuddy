@@ -54,9 +54,12 @@ async def github_submit(req: GitPushRequest):
         print("Uploaded to drive:", drive_link, file_id)
         if drive_link is None:
             return {"success": False, "error": file_id}
-        return gcr_client.submit_to_classroom(req.course_id, req.assignment_id, file_id)
-        
+        data = gcr_client.submit_to_classroom(req.course_id, req.assignment_id, file_id)
+        if data["success"] == False:
+            github.delete_repo(req.repo_name)
+        return data
     except Exception as e:
+        github.delete_repo(req.repo_name)
         return {"error": str(e)}
 
 @app.post("/add_api_key")
