@@ -12,7 +12,8 @@ SCOPES = [
             "https://www.googleapis.com/auth/classroom.rosters",
             "https://www.googleapis.com/auth/classroom.coursework.me",
             "https://www.googleapis.com/auth/drive.file",
-            "https://www.googleapis.com/auth/classroom.coursework.students"
+            "https://www.googleapis.com/auth/classroom.coursework.students",
+            "https://www.googleapis.com/auth/classroom.profile.emails"
 ]
 
 def get_creds():
@@ -215,7 +216,7 @@ class GoogleClassroomClient:
                         "draftGrade": submission.get("draftGrade"),
                         "maxPoints": work.get("maxPoints")
                     }
-                print(grade_info)
+                # print(grade_info)
                 result.append({
                     "assignmentId": work.get("id", ""),
                     "title": work.get("title", ""),
@@ -229,6 +230,7 @@ class GoogleClassroomClient:
             return result
         except Exception as e:
             print(f"❌ Failed to fetch assignments for course {course_id}: {e}")
+            
             return None
     def join_course_as_student(self, course_id, enrollment_code):
         """
@@ -264,7 +266,15 @@ class GoogleClassroomClient:
             print("❌ Not logged in.")
             return None
         profile = self.service.userProfiles().get(userId="me").execute()
-        return profile["name"]["fullName"]
+        # print("profile", profile)
+
+        email = profile.get("emailAddress")
+        if email:
+            username = email.split('@')[0]
+            return username
+        else:
+            return None
+
     
 
     def get_courses(self, limit=100):

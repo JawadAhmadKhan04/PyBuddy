@@ -2,9 +2,13 @@ import os
 from redis import Redis
 import json
 from cryptography.fernet import Fernet
+# from upstash_redis import Redis
+
 class Database:
     
     def __init__(self):
+        # self.redis = Redis.from_env()
+
         self.redis = Redis(host='localhost', port=6379, db=0)
         encryption_key = os.environ.get('PYBUDDY_ENCRYPTION_KEY')
         if not encryption_key:

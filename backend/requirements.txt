@@ -3,5 +3,5 @@ google.genai
 pydantic
 dotenv
 fastapi
-redis
+upstash_redis
 cryptography

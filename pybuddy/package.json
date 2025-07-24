@@ -56,11 +56,6 @@
         "icon": "$(light-bulb)"
       },
       {
-        "command": "pybuddy.preprocessFiles",
-        "title": "Preprocess Files",
-        "icon": "$(book)"
-      },
-      {
         "command": "pybuddy.setGithubCredentials",
         "title": "Set GitHub Credentials",
         "icon": "$(mark-github)"
@@ -102,11 +97,8 @@
       "editor/title": [
         {
           "command": "pybuddy.generateHints",
+          "when": "pybuddyLoggedIn",
           "group": "navigation@1"
-        },
-        {
-          "command": "pybuddy.preprocessFiles",
-          "group": "navigation@2"
         }
       ],
       "view/title": [

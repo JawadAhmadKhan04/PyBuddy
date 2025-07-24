@@ -237,9 +237,6 @@ function activate(context) {
 			}
 		}),
 		vscode.commands.registerCommand('pybuddy.showQuestions', handleGenerateQuestions(questionProvider)),
-		vscode.commands.registerCommand('pybuddy.preprocessFiles', async () => {
-			await handleLoginFlow();
-		}),
 		vscode.commands.registerCommand('pybuddy.clearQuestions', () => {
 			if (questionProvider._webviewView) {
 				questionProvider._webviewView.webview.postMessage({ type: 'clearQuestions' });
@@ -510,8 +507,20 @@ function activate(context) {
 
     // Register the generateHints command to always use the latest assignment description
     context.subscriptions.push(
-        vscode.commands.registerCommand('pybuddy.generateHints', () => {
+        vscode.commands.registerCommand('pybuddy.generateHints', async () => {
             // Only allow generating hints if assignment has been started
+            const editor = vscode.window.activeTextEditor;
+            if (editor && editor.document && editor.document.fileName.toLowerCase().endsWith('readme.md')) {
+                vscode.window.showInformationMessage('Open the file of the question');
+                return;
+            }
+            // Prevent hints if no question is present
+            if (!currentAssignmentDescription || currentAssignmentDescription.trim() === '') {
+                vscode.window.showInformationMessage('No question is present for this assignment. Cannot generate hints.');
+                return;
+            }
+            // Automatically open/focus the hints (chat) view
+            await vscode.commands.executeCommand('pybuddy-chat.focus');
             if (currentAssignmentNode) {
                 let courseName = 'UnknownCourse';
                 if (currentAssignmentNode.parent && currentAssignmentNode.parent.parent) {
@@ -647,7 +656,7 @@ function activate(context) {
             }
             await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
-                title: 'Submitting assignment to GitHub...',
+                title: 'Submitting ...',
                 cancellable: false
             }, async (progress) => {
                 const username = context.globalState.get('pybuddy.username', '');

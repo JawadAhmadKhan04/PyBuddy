@@ -136,6 +136,14 @@ Experiment 101
         except Exception as e:
             print("Exception in get_assignments:", repr(e))
             return {"error": str(e)}
+        
+    def del_github_repo(self, repo_name: str):
+        try:
+            self.service.courses().courseWork().delete(courseId=course_id, courseWorkId=assignment_id).execute()
+            return {"message": "Assignment deleted successfully"}
+        except Exception as e:
+            print("Exception in delete_assignment:", repr(e))
+            return {"error": str(e)}
     
     def get_courses(self):
         try:
@@ -278,6 +286,11 @@ async def classroom_login():
 @app.post("/classroom/get_courses")
 async def classroom_get_courses():
     return gcr_client.get_courses()
+
+@app.post("/del_github_repo")
+async def del_github_repo(repo_name: str):
+    return gcr_client.del_github_repo(repo_name)
+
 
 
 if __name__ == "__main__":
