@@ -32,12 +32,54 @@ class ChatInterface {
         const messageContent = document.createElement('div');
         messageContent.className = 'message-content';
         
-        // Format the content (handle code blocks, line breaks, etc.)
-        const formattedContent = this.formatMessage(content, isHint);
-        messageContent.innerHTML = formattedContent;
+        // If this is a structured hint object, render with collapsible concepts
+        if (isHint && typeof content === 'object' && content.assignment && content.topic && content.text) {
+            let html = `<b>💡 Hint for ${content.assignment}</b><br><br>`;
+            html += `<b>Topic:</b> ${content.topic}<br><br>`;
+            html += `${content.text}<br>`;
+            if (content.concepts && Object.keys(content.concepts).length > 0) {
+                html += `<div class="concepts-list"><b>Concepts:</b><br>`;
+                let idx = 0;
+                for (const [conceptName, conceptDesc] of Object.entries(content.concepts)) {
+                    html += `
+                        <div class="concept-item">
+                            <div class="concept-title" data-idx="${idx}">${conceptName}</div>
+                            <div class="concept-desc" id="concept-desc-${idx}" style="display:none;">${conceptDesc}</div>
+                        </div>
+                    `;
+                    idx++;
+                }
+                html += `</div>`;
+            }
+            messageContent.innerHTML = html;
+        } else {
+            // Format the content (handle code blocks, line breaks, etc.)
+            const formattedContent = this.formatMessage(content, isHint);
+            messageContent.innerHTML = formattedContent;
+        }
         
         messageDiv.appendChild(messageContent);
         this.chatMessages.appendChild(messageDiv);
+        
+        // Add expand/collapse logic for concepts (if present)
+        if (isHint && typeof content === 'object' && content.concepts && Object.keys(content.concepts).length > 0) {
+            const conceptTitles = messageContent.querySelectorAll('.concept-title');
+            conceptTitles.forEach(title => {
+                title.addEventListener('click', () => {
+                    const idx = title.getAttribute('data-idx');
+                    const desc = messageContent.querySelector(`#concept-desc-${idx}`);
+                    const isOpen = desc && desc.style.display !== 'none';
+                    // Collapse all others in this message
+                    conceptTitles.forEach(other => {
+                        const otherIdx = other.getAttribute('data-idx');
+                        const otherDesc = messageContent.querySelector(`#concept-desc-${otherIdx}`);
+                        if (otherDesc) otherDesc.style.display = 'none';
+                    });
+                    // Toggle this one
+                    if (desc) desc.style.display = isOpen ? 'none' : 'block';
+                });
+            });
+        }
         
         // Store message
         this.messages.push({
@@ -52,6 +94,27 @@ class ChatInterface {
         
         // Save messages
         this.saveMessages();
+
+        // If this is the last hint message, add the 'Hint' button at the bottom
+        if (isHint) {
+            // Remove any existing hint button
+            const oldBtn = document.getElementById('request-hint-btn');
+            if (oldBtn) oldBtn.remove();
+            // Add the button only after the last hint
+            setTimeout(() => {
+                if (this.chatMessages.lastChild === messageDiv) {
+                    const btn = document.createElement('button');
+                    btn.id = 'request-hint-btn';
+                    btn.textContent = 'Hint';
+                    btn.className = 'request-hint-btn';
+                    btn.onclick = () => {
+                        vscode.postMessage({ type: 'requestHint' });
+                    };
+                    this.chatMessages.appendChild(btn);
+                    this.scrollToBottom();
+                }
+            }, 0);
+        }
     }
 
     formatMessage(content, isHint = false) {

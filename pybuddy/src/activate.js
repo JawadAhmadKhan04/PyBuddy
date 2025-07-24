@@ -733,6 +733,15 @@ function activate(context) {
         };
     }
 
+    // Listen for 'requestHint' messages from the chat webview and trigger the generateHints command
+    if (chatProvider && chatProvider._webviewView) {
+        chatProvider._webviewView.webview.onDidReceiveMessage((msg) => {
+            if (msg && msg.type === 'requestHint') {
+                vscode.commands.executeCommand('pybuddy.generateHints');
+            }
+        });
+    }
+
 	vscode.window.onDidChangeActiveTextEditor(async (editor) => {
 		if (editor && editor.document && editor.document.languageId === 'python') {
             const filePath = editor.document.uri.fsPath;
@@ -794,6 +803,27 @@ function activate(context) {
             vscode.commands.executeCommand('pybuddy.showAssignmentDescription', assignmentNode);
         })
     );
+
+    // Attach the handler for 'requestHint' ONCE when the chat webview is available
+    function attachChatWebviewHandler() {
+        if (chatProvider && chatProvider._webviewView && !chatProvider._webviewView.webview._requestHintHandlerAttached) {
+            chatProvider._webviewView.webview.onDidReceiveMessage((msg) => {
+                if (msg && msg.type === 'requestHint') {
+                    vscode.commands.executeCommand('pybuddy.generateHints');
+                }
+            });
+            chatProvider._webviewView.webview._requestHintHandlerAttached = true;
+        }
+    }
+    // Try to attach immediately, and also on webview view resolve
+    attachChatWebviewHandler();
+    if (chatProvider && chatProvider.resolveWebviewView) {
+        const origResolveChat = chatProvider.resolveWebviewView.bind(chatProvider);
+        chatProvider.resolveWebviewView = function(webviewView) {
+            origResolveChat(webviewView);
+            attachChatWebviewHandler();
+        };
+    }
 
 }
 
