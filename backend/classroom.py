@@ -201,8 +201,6 @@ Experiment 101
 }
 
             print("Area 2: ", modify_body)
-
-
             result = self.service.courses().courseWork().studentSubmissions().modifyAttachments(
                 courseId=course_id,
                 courseWorkId=assignment_id,

@@ -215,7 +215,6 @@ class GoogleClassroomClient:
                         "draftGrade": submission.get("draftGrade"),
                         "maxPoints": work.get("maxPoints")
                     }
-                print(grade_info)
                 result.append({
                     "assignmentId": work.get("id", ""),
                     "title": work.get("title", ""),
