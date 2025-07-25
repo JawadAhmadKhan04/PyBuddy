@@ -32,19 +32,18 @@ class ChatInterface {
         const messageContent = document.createElement('div');
         messageContent.className = 'message-content';
         
-        // If this is a structured hint object, render with collapsible concepts
+        // If this is a structured hint object, render with clickable concepts (no dropdown)
         if (isHint && typeof content === 'object' && content.assignment && content.topic && content.text) {
             let html = `<b>💡 Hint for ${content.assignment}</b><br><br>`;
             html += `<b>Topic:</b> ${content.topic}<br><br>`;
             html += `${content.text}<br>`;
-            if (content.concepts && Object.keys(content.concepts).length > 0) {
+            if (content.concepts && Array.isArray(content.concepts) && content.concepts.length > 0) {
                 html += `<div class="concepts-list"><b>Concepts:</b><br>`;
                 let idx = 0;
-                for (const [conceptName, conceptDesc] of Object.entries(content.concepts)) {
+                for (const conceptName of content.concepts) {
                     html += `
                         <div class="concept-item">
                             <div class="concept-title" data-idx="${idx}">${conceptName}</div>
-                            <div class="concept-desc" id="concept-desc-${idx}" style="display:none;">${conceptDesc}</div>
                         </div>
                     `;
                     idx++;
@@ -61,22 +60,13 @@ class ChatInterface {
         messageDiv.appendChild(messageContent);
         this.chatMessages.appendChild(messageDiv);
         
-        // Add expand/collapse logic for concepts (if present)
-        if (isHint && typeof content === 'object' && content.concepts && Object.keys(content.concepts).length > 0) {
+        // Add click logic for concepts (if present, now triggers hint for concept)
+        if (isHint && typeof content === 'object' && Array.isArray(content.concepts) && content.concepts.length > 0) {
             const conceptTitles = messageContent.querySelectorAll('.concept-title');
             conceptTitles.forEach(title => {
                 title.addEventListener('click', () => {
-                    const idx = title.getAttribute('data-idx');
-                    const desc = messageContent.querySelector(`#concept-desc-${idx}`);
-                    const isOpen = desc && desc.style.display !== 'none';
-                    // Collapse all others in this message
-                    conceptTitles.forEach(other => {
-                        const otherIdx = other.getAttribute('data-idx');
-                        const otherDesc = messageContent.querySelector(`#concept-desc-${otherIdx}`);
-                        if (otherDesc) otherDesc.style.display = 'none';
-                    });
-                    // Toggle this one
-                    if (desc) desc.style.display = isOpen ? 'none' : 'block';
+                    const conceptName = title.textContent;
+                    vscode.postMessage({ type: 'requestHint', concept: conceptName });
                 });
             });
         }

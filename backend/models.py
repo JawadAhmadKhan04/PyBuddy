@@ -1,10 +1,11 @@
 from pydantic import BaseModel
-from typing import Dict
+from typing import Dict, Optional
 
 class GenerateHintsRequest(BaseModel):
     question_data: str
     code_dict: Dict[str, str]
     username: str
+    topic: Optional[str] = None
 
 class AddApiKeyRequest(BaseModel):
     username: str

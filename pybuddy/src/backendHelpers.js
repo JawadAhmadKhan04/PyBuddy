@@ -123,7 +123,7 @@ function handleShowHints(chatProvider) {
 }
 
 function handleGenerateHints(chatProvider, context) {
-    return async function (description = null) {
+    return async function (description = null, topic = null) {
         const activeEditor = vscode.window.activeTextEditor;
         if (activeEditor) {
             // Save the current editor content before proceeding
@@ -156,7 +156,8 @@ function handleGenerateHints(chatProvider, context) {
                         const requestBody = {
                             code_dict: codeDict,
                             question_data: description || '',
-                            username: context.globalState.get('pybuddy.username', '')
+                            username: context.globalState.get('pybuddy.username', ''),
+                            topic: topic === undefined ? null : topic
                         };
                         console.log(requestBody);
                         const response = await fetch(endpoint, {

@@ -123,14 +123,30 @@ async def get_user_name(request: StartingUpRequest):
 async def get_credentials():
     return get_creds()
 
+def transform_concepts_to_array(hint: dict) -> dict:
+    """
+    Transforms a hint dict with concepts as a dict of topic: description
+    into a hint dict with concepts as a list of topic names.
+    """
+    if "concepts" in hint and isinstance(hint["concepts"], dict):
+        hint["concepts"] = list(hint["concepts"].keys())
+    return hint
+
 @app.post("/generate_hints")
 async def generate_hints(request: GenerateHintsRequest):
+    print("---------------------------------------")
+    print("request", request)
     code_dict = request.code_dict
     question_data = request.question_data
     db = Database()
     api_key = db.get_api(request.username)
-    result = hinter.get_general_hints(code_dict, question_data, api_key)
+    result = hinter.get_general_hints(code_dict, question_data, api_key, request.topic)
     
     if result.get("error"):
         return {"error": result["error"]}
-    return result
+    
+    result1 = transform_concepts_to_array(result)
+    result1['hint'] = transform_concepts_to_array(result1['hint'])
+    # print("---------------------------------------")
+    # print("result1", result1)
+    return result1

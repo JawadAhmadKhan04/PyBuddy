@@ -26,7 +26,7 @@ class FileBasedHints:
         """
 
 
-    def get_general_hints(self, present_code: dict[str, str], question_data: str, api_key: str) -> dict:
+    def get_general_hints(self, present_code: dict[str, str], question_data: str, api_key: str, topic: str) -> dict:
         """
         Generates hints for the file using the language model.
         

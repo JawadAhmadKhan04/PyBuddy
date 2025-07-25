@@ -809,7 +809,15 @@ function activate(context) {
         if (chatProvider && chatProvider._webviewView && !chatProvider._webviewView.webview._requestHintHandlerAttached) {
             chatProvider._webviewView.webview.onDidReceiveMessage((msg) => {
                 if (msg && msg.type === 'requestHint') {
-                    vscode.commands.executeCommand('pybuddy.generateHints');
+                    if (msg.concept) {
+                        // Pass the concept as the topic to the hint generator
+                        handleGenerateHints(chatProvider, context)(currentAssignmentDescription, msg.concept);
+                    } else {
+                        vscode.commands.executeCommand('pybuddy.generateHints');
+                    }
+                }
+                if (msg && msg.type === 'info' && msg.message) {
+                    vscode.window.showInformationMessage(msg.message);
                 }
             });
             chatProvider._webviewView.webview._requestHintHandlerAttached = true;
