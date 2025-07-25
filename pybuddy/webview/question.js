@@ -250,6 +250,7 @@ class QuestionInterface {
         }
     }
 }
+vscode.postMessage({ type: 'question', content: 'Test question content here.' });
 
 // Initialize question interface when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
