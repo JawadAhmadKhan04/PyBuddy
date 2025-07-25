@@ -116,7 +116,7 @@ function activate(context) {
                     }
                     // Read README content from template file
                     const readmePath = path.join(gclFolder, 'README.md');
-                    const templatePath = path.join(__dirname, '../README_workspace.md');
+                    const templatePath = path.join(__dirname, '../help.md');
                     let readmeContent = '';
                     if (fs.existsSync(templatePath)) {
                         readmeContent = fs.readFileSync(templatePath, 'utf8');
@@ -182,7 +182,7 @@ function activate(context) {
                     }
                     const readmePath = path.join(gclFolder, 'README.md');
                     // Read README content from template file
-                    const templatePath = path.join(__dirname, '../README_workspace.md');
+                    const templatePath = path.join(__dirname, '../help.md');
                     let readmeContent = '';
                     if (fs.existsSync(templatePath)) {
                         readmeContent = fs.readFileSync(templatePath, 'utf8');
@@ -809,7 +809,17 @@ function activate(context) {
         if (chatProvider && chatProvider._webviewView && !chatProvider._webviewView.webview._requestHintHandlerAttached) {
             chatProvider._webviewView.webview.onDidReceiveMessage((msg) => {
                 if (msg && msg.type === 'requestHint') {
+                    const editor = vscode.window.activeTextEditor;
                     if (msg.concept) {
+                        // Check for README.md or missing question
+                        if (editor && editor.document && editor.document.fileName.toLowerCase().endsWith('readme.md')) {
+                            vscode.window.showInformationMessage('Open the file of the question');
+                            return;
+                        }
+                        if (!currentAssignmentDescription || currentAssignmentDescription.trim() === '') {
+                            vscode.window.showInformationMessage('Open the file of the question');
+                            return;
+                        }
                         // Pass the concept as the topic to the hint generator
                         handleGenerateHints(chatProvider, context)(currentAssignmentDescription, msg.concept);
                     } else {
