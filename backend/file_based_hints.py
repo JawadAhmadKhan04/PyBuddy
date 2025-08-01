@@ -1,51 +1,54 @@
 import os
 from pydantic import BaseModel
-import os
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 import pathlib
 import json
 import question_separator_prompt
+
 load_dotenv()
 
 class FileBasedHints:
     """
     A class to handle file-based hint generation using a language model.
     """
-    
+
     class Hint(BaseModel):
         hint_text: str
         hint_topic: str
         concepts: dict[str, str]
-        
+
     def __init__(self) -> None:
         """
         Initializes the FileBasedHints class.
-
         """
-
+        self.model = None
+        self.llm = None
 
     def get_general_hints(self, present_code: dict[str, str], question_data: str, api_key: str, topic: str) -> dict:
         """
         Generates hints for the file using the language model.
-        
+
         Args:
             present_code (dict[str, str]): Dictionary containing the current code files
-            folder_name (str): Name of the folder containing questions
-            question_no (int): The number of the question to generate hints for.
+            question_data (str): The problem statement
+            api_key (str): API key for the language model
+            topic (str): Topic of the question
         """
         try:
             current_code = ""
             if present_code:
                 for filename, code_content in present_code.items():
                     if filename.endswith('.py'):
-                        # Remove the initial comment and get actual code
                         lines = code_content.split('\n')
-                        code_lines = [line for line in lines if not line.strip().startswith('#') or 'This is question' not in line]
+                        code_lines = [
+                            line for line in lines
+                            if not line.strip().startswith('#') or 'This is question' not in line
+                        ]
                         current_code += '\n'.join(code_lines).strip()
 
-            prompt = f"""You are an intelligent and helpful Python tutor who is quite friendly and informal in nature but keeps in mind that they need to be professsional assisting a student with the following programming task.
+            prompt = f"""You are a professional yet informal and friendly Python tutor. Your job is to guide the student step by step — not give away answers, but always focus on the *next* fix or improvement.
 
 == Problem ==
 {question_data}
@@ -54,50 +57,54 @@ class FileBasedHints:
 {current_code}
 
 == Task ==
-Based on the problem and current code, provide one high-quality, structured hint in JSON format using this schema:
-Provide exactly one JSON object with these fields:
-- hint_text: Clear, actionable guidance for the next step (no code), and they must be short and specific.
-- hint_topic: 1-3 word topic tag (e.g., 'loops', 'recursion')
-- concepts: Dictionary of key terms with simple definitions
-
-IMPORTANT:
-1. Return ONLY the raw JSON object
-2. No Markdown formatting (no ```json or ```)
-3. No additional explanations
-4. Valid JSON syntax only
+Based on the problem and current code, provide exactly ONE short but highly actionable hint in **JSON format**. This hint should:
+- Focus on fixing or understanding ONE small step.
+- Clearly explain *why* something is wrong if it is.
+- If the code is not working, help find the most critical logic or syntax issue and explain it gently.
+- Avoid giving code or solutions; instead, help the student discover it.
+- Always simplify advanced terms or abstract ideas.
+- Do not say “Your solution looks complete!” unless the student has written the full end-to-end logic for solving the problem.
+- A complete solution must include:
+    - All loops and decision logic needed for solving the problem.
+    - A correct and meaningful return value or printed output at the end.
+    - Use of all necessary inputs (e.g., weights, values, capacity in knapsack).
+- If any part is missing (e.g., return statement, reconstruction of solution, base conditions, or complete iteration), consider the code incomplete and give the next required concept.
+- Even if the structure is correct, treat the solution as incomplete until it computes the actual answer and returns or prints it.
+== Format ==
+Return only a valid JSON object like this:
 
 {{
-  "hint_text": "<a clear, helpful, and actionable explanation>",
-@@ -88,35 +98,37 @@
-- Include a dictionary of all programming terms, structures, or logic ideas you used in your hint.
-- For each concept, give a simple, clear, **beginner-level explanation**.
-- You must keep on simplifying the hints as the user keeps clicking the hints button.
-- Clearly identify any syntax errors if they exist.
-- Clearly tell what the user must do to solve any problem in the code.
-- Clearly analyze the {topic} and your hint must completely revolve around it if it exists.
-- If the user is stuck help themout with the syntax without giving code
-- Your hints must stay within context also must tell the user in simpe terms what to do
-- If your hint says “base case,” the concept for "base case" must explain what that is.
-- You must keep it step by step, keep in mind dont move to the next step until perfecting the current step.
-- Give at least 3 concepts but keep in mind to avoid giving unnecessary concepts.
-- Keep the concept description informal and casual so that it is easy for the user to understand.
-- Avoid vague or advanced language — make it easy for a student to grasp.
-- You must keep in mind that you have to help user solve all edge cases one by one instead of after completing solution.
-- Hints must be informal, user friendly such that it is giving hints to a student.
-- Hints must become more and more specific if the user is still stuck on a specific point.
-- You can provide built in functions in Hints but tell the user in one line what they do.
-- Hints must be short not to long.
-- Once the solution is complete tell the user its complete and stop giving hints.
-- Once the solution is totally perfectly complete you should not be giving concepts
+  "hint_text": "<A clear, friendly tip about what to fix or think about next — no code.>",
+  "hint_topic": "<One to three words max — e.g., 'loop', 'base case', 'recurrence'>",
+  "concepts": {{
+    "concept1": "Explain this simply, like you're talking to a beginner.",
+    "concept2": "Another simple explanation.",
+    "concept3": "One more, no unnecessary jargon."
+  }}
+}}
+
+== Additional Instructions ==
+- Return only the raw JSON — no markdown, no comments, no explanation.
+- If there’s a mistake in logic or syntax, identify it politely.
+- Always focus the hint on what the student should think about next.
+- Be concise, casual, and approachable — like you're tutoring a beginner in person.
+- Explain all terms used in the hint in the concepts section.
+- If the solution is now totally correct, say “Your solution looks complete!” and give no new concepts.
+
+== Examples of Better Style ==
+BAD: “Use nested loops to fill the dp table.”
+GOOD: “Try looping over each item and for each one, check all capacities — this helps you fill the DP table step by step.”
+
+BAD: “Your recurrence is wrong.”
+GOOD: “It looks like you're only choosing one option for the item. What if we also check the value when we skip it?”
 
 == Output ==
-Return a **single valid JSON object** only — do not include explanations, markdown, or anything else outside the JSON.
-
-Let's take it step by step."""
-
+Now return one helpful JSON hint for the student based on the code above.
+"""
             os.environ["GEMINI_API_KEY"] = api_key
             self.model = "gemini-2.5-flash"
             self.llm = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+
             response = self.llm.models.generate_content(
                 model=self.model,
                 contents=[{
@@ -105,8 +112,15 @@ Let's take it step by step."""
                     "parts": [{"text": prompt}]
                 }]
             )
+
             try:
-                hint_data = json.loads(response.text)
+                cleaned_text = response.text.strip()
+                if cleaned_text.startswith("```json"):
+                    cleaned_text = cleaned_text.removeprefix("```json").strip()
+                if cleaned_text.endswith("```"):
+                    cleaned_text = cleaned_text.removesuffix("```").strip()
+
+                hint_data = json.loads(cleaned_text)
                 print("Generated hint:", hint_data)
                 return {"hint": hint_data}
             except json.JSONDecodeError as e:
@@ -115,8 +129,9 @@ Let's take it step by step."""
 
         except Exception as e:
             print(f"Error generating hint: {str(e)}")
-            # Check if the error is related to API key
             error_str = str(e).lower()
             if "api" in error_str and ("key" in error_str or "invalid" in error_str or "unauthorized" in error_str or "authentication" in error_str):
-                return {"error": "API Key is Invalid. Either enter a valid API key or check if the API key is not expired."}
+                return {
+                    "error": "API Key is Invalid. Either enter a valid API key or check if the API key is not expired."
+                }
             return {"error": f"Error generating hint: {str(e)}"}
