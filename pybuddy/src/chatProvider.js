@@ -3,9 +3,9 @@ const fs = require('fs');
 
 class ChatProvider {
 	constructor(extensionUri) {
-		this._extensionUri = extensionUri;
-		this._webviewView = null;
-		this._messages = [];
+		this._extensionUri=extensionUri;
+		this._webviewView=null;
+		this._messages=[];
 	}
 
 	resolveWebviewView(webviewView) {
