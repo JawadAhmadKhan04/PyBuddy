@@ -6,6 +6,8 @@ This folder contains your Google Classroom assignments managed by PyBuddy.
 
 To start an assignment, select it from the Google Classroom tree and click the Start button. Once started, the assignment folder and main.py will appear here.
 
+*Kindly take note that you MUST not edit the file or folder names*
+
 When submitting the assignment, take note that we do not cater for already submitted attachments, resubmission is allowed only if your instructor grades or returns your assignment
 
 Your assignment will be submitted on your Github profile and as a zip file on Google Classroom. 
