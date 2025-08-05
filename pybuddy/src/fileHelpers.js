@@ -6,7 +6,7 @@ async function openFolderInExplorer(folderPath) {
 		await vscode.commands.executeCommand('vscode.openFolder', uri, false);
 		vscode.window.showInformationMessage("Opening folder");
 	} catch (err) {
-		vscode.window.showErrorMessage('Could not open folder: ' + err.message);
+		vscode.window.showErrorMessage('Could not open folder');
 	}
 }
 

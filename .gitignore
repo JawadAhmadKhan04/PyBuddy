@@ -5,3 +5,5 @@ backend/token.json
 backend/credentials.json
 pybuddy/src/credentials.json
 pybuddy/src/token.json
+backend/classroom.py
+backend/del_repos.py

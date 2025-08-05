@@ -15,6 +15,18 @@ const backend_url = "http://127.0.0.1:8000";
 let fileHints = {}; // { [filePath]: [hintMessage, ...] }
 let currentFilePath = null;
 
+// Function to clear hints for the current file from storage
+function clearCurrentFileHints() {
+    const activeEditor = vscode.window.activeTextEditor;
+    if (activeEditor) {
+        const filePath = activeEditor.document.uri.fsPath;
+        if (fileHints[filePath]) {
+            delete fileHints[filePath];
+            console.log(`Cleared hints for file: ${filePath}`);
+        }
+    }
+}
+
 
 
 function handleAddApiKey(context) {
@@ -46,12 +58,12 @@ function handleAddApiKey(context) {
                     body: JSON.stringify({ api_key: apiKey, username: context.globalState.get('pybuddy.username') })
                 });
                 if (!response.ok) {
-                    throw new Error(`Backend returned status ${response.status}`);
+                    throw new Error(`Error occurred while adding API key`);
                 }
                 const data = await response.json();
                 vscode.window.showInformationMessage(data.message || 'API key sent to backend successfully!');
             } catch (error) {
-                vscode.window.showErrorMessage('Failed to send API key to backend: ' + error.message);
+                vscode.window.showErrorMessage('Error occurred while adding API key');
             }
         }
     }
@@ -81,7 +93,7 @@ async function backendLogout(tokenJson = globalTokenJson) {
             vscode.window.showWarningMessage('Failed to delete token.json after logout.');
         }
     } catch (error) {
-        vscode.window.showErrorMessage('Logout failed: ' + error.message);
+        vscode.window.showErrorMessage('Logout failed');
     }
 }
 
@@ -297,7 +309,7 @@ function handleGenerateQuestions(questionProvider) {
 							vscode.window.showWarningMessage('No question returned by backend.');
 						}
 					} catch (error) {
-						vscode.window.showErrorMessage('Failed to generate questions: ' + error.message);
+						vscode.window.showErrorMessage('Error occurred while generating questions');
 					}
 				}
 			);
@@ -324,7 +336,7 @@ async function fetchGCRData(tokenJson = globalTokenJson) {
         const data = await response.json();
         return data.gcr_data || [];
     } catch (error) {
-        vscode.window.showErrorMessage('Failed to fetch Google Classroom data: ' + error.message);
+        vscode.window.showErrorMessage('Error occurred while fetching Google Classroom data');
         return [];
     }
 }
@@ -529,5 +541,6 @@ module.exports = {
     loginWithGoogle,
     saveGithubCredentialsToBackend,
     deleteGithubCredentialsFromBackend,
-    joinClassroomToBackend
+    joinClassroomToBackend,
+    clearCurrentFileHints
 };

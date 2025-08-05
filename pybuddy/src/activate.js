@@ -7,7 +7,7 @@ const ChatProvider = require('./chatProvider');
 const QuestionProvider = require('./questionProvider');
 const ClassroomTreeProvider = require('./classroomTreeProvider');
 
-const { handleLoginFlow, handleGenerateHints, handleShowHints, handleGenerateQuestions, handleAddApiKey, backendLogout, fetchGCRData, getUserName, submitAssignmentToGithub, loginWithGoogle, saveGithubCredentialsToBackend, deleteGithubCredentialsFromBackend, joinClassroomToBackend } = require('./backendHelpers');
+const { handleLoginFlow, handleGenerateHints, handleShowHints, handleGenerateQuestions, handleAddApiKey, backendLogout, fetchGCRData, getUserName, submitAssignmentToGithub, loginWithGoogle, saveGithubCredentialsToBackend, deleteGithubCredentialsFromBackend, joinClassroomToBackend, clearCurrentFileHints } = require('./backendHelpers');
 const { openFolderInExplorer } = require('./fileHelpers');
 
 /**
@@ -127,7 +127,7 @@ function activate(context) {
                     const uri = vscode.Uri.file(gclFolder);
                     await vscode.commands.executeCommand('vscode.openFolder', uri, false);
                 } catch (err) {
-                    vscode.window.showErrorMessage('Failed to create or open GoogleClassroomLocal folder: ' + err.message);
+                    vscode.window.showErrorMessage('Error occurred while creating or opening GoogleClassroomLocal folder');
                 }
             }
             classroomTreeProvider.setLoading(true);
@@ -196,7 +196,7 @@ function activate(context) {
                     vscode.commands.executeCommand('vscode.openFolder', uri, false);
                     return; // Stop further activation until reload
                 } catch (err) {
-                    vscode.window.showErrorMessage('Failed to create or open GoogleClassroomLocal folder: ' + err.message);
+                    vscode.window.showErrorMessage('Error occurred while creating or opening GoogleClassroomLocal folder');
                     return;
                 }
             }
@@ -207,7 +207,7 @@ function activate(context) {
             classroomTreeProvider.setData(treeData);
             classroomTreeProvider.setLoading(false);
         } catch (err) {
-            vscode.window.showErrorMessage('Google login failed: ' + err.message);
+            vscode.window.showErrorMessage('Google login failed');
             context.globalState.update('pybuddyLoggedIn', false);
             vscode.commands.executeCommand('setContext', 'pybuddyLoggedIn', false);
             classroomTreeProvider.setLoggedIn(false);
@@ -234,6 +234,8 @@ function activate(context) {
 		vscode.commands.registerCommand('pybuddy.clearHints', () => {
 			if (chatProvider._webviewView) {
 				chatProvider._webviewView.webview.postMessage({ type: 'clearChat' });
+				// Also clear hints from persistent storage
+				clearCurrentFileHints();
 			}
 		}),
 		vscode.commands.registerCommand('pybuddy.showQuestions', handleGenerateQuestions(questionProvider)),
@@ -306,7 +308,7 @@ function activate(context) {
                 if (result && result.message) {
                     vscode.window.showInformationMessage(result.message);
                 } else if (result && result.error) {
-                    vscode.window.showErrorMessage('Failed to save GitHub credentials to backend: ' + result.error);
+                    vscode.window.showErrorMessage('Error occurred while saving GitHub credentials');
                 }
             } else if (choice.value === 'delete') {
                 // Call backend to delete GitHub credentials
@@ -319,7 +321,7 @@ function activate(context) {
                 if (result && result.message) {
                     vscode.window.showInformationMessage(result.message);
                 } else if (result && result.error) {
-                    vscode.window.showErrorMessage('Failed to delete GitHub credentials: ' + result.error);
+                    vscode.window.showErrorMessage('Failed to delete GitHub credentials');
                 } else {
                     vscode.window.showErrorMessage('Failed to delete GitHub credentials.');
                 }
@@ -585,7 +587,7 @@ function activate(context) {
                 const mainPyUri = vscode.Uri.file(mainPyPath);
                 vscode.window.showTextDocument(mainPyUri);
             } catch (err) {
-                vscode.window.showErrorMessage(`Failed to create folder or file: ${err.message}`);
+                vscode.window.showErrorMessage(`Failed to create folder or file`);
             }
             vscode.window.showInformationMessage(currentAssignmentNode.label || 'Assignment started!');
             if (questionProvider && questionProvider._webviewView) {
@@ -685,7 +687,7 @@ function activate(context) {
                     } else if (userMessage.toLowerCase().includes('server error')) {
                         userMessage = 'Server error: There was a problem with the server. Please try again later.';
                     }
-                    vscode.window.showErrorMessage(`GitHub Submission Failed: ${userMessage}`);
+                    vscode.window.showErrorMessage(`Submission failed`);
                     // Re-enable the submit button on failure
                     if (questionProvider && questionProvider._webviewView) {
                         questionProvider._webviewView.webview.postMessage({ type: 'enableSubmitButton' });
