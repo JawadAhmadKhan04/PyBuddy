@@ -32,7 +32,7 @@
       },
       {
         "command": "pybuddy.addApiKey",
-        "title": "Add API Key",
+        "title": "Add Gemini API Key",
         "icon": "$(key)"
       },
       {

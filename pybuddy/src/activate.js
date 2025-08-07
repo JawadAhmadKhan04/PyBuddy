@@ -659,7 +659,7 @@ function activate(context) {
                 }
                 return;
             }
-            await vscode.window.withProgress({
+            const result = await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
                 title: 'Submitting ...',
                 cancellable: false
@@ -673,47 +673,51 @@ function activate(context) {
                     code_files: codeFiles,
                     info: globalTokenJson
                 });
-                if (result && result.error) {
-                    let userMessage = result.error;
-                    // Friendly error mapping
-                    if (userMessage.includes('401')) {
-                        userMessage = 'Authentication failed: Your GitHub credentials are missing, invalid, or expired. Please update your credentials.';
-                    } else if (userMessage.includes('403')) {
-                        userMessage = 'Permission denied: Your GitHub token does not have permission to perform this action.';
-                    } else if (userMessage.includes('422')) {
-                        userMessage = 'Validation error: The repository or file data is invalid or already exists.';
-                    } else if (userMessage.toLowerCase().includes('not found')) {
-                        userMessage = 'Resource not found: The requested repository or file could not be found.';
-                    } else if (userMessage.toLowerCase().includes('server error')) {
-                        userMessage = 'Server error: There was a problem with the server. Please try again later.';
-                    }
-                    vscode.window.showErrorMessage(`Submission failed`);
-                    // Re-enable the submit button on failure
-                    if (questionProvider && questionProvider._webviewView) {
-                        questionProvider._webviewView.webview.postMessage({ type: 'enableSubmitButton' });
-                    }
-                } else if (result && result.message) {
-                    // vscode.window.showInformationMessage(`Assignment submitted! ${result.message}`);
-                    // Automatically refresh GCR data
-                    classroomTreeProvider.setLoading(true);
-                                // Also clear the question panel so it shows the default message
-                    if (questionProvider && questionProvider._webviewView) {
-                        questionProvider._webviewView.webview.postMessage({ type: 'clearQuestions' });
-                    }
-                    const gcrData = await fetchGCRData(globalTokenJson);
-                    const treeData = transformGCRDataToTree(gcrData);
-                    setParentReferences(treeData);
-                    classroomTreeProvider.setData(treeData);
-                    classroomTreeProvider.setLoading(false);
-                    // Keep submit button disabled on success
-                } else {
-                    vscode.window.showErrorMessage('Unknown error occurred during submission.');
-                    // Re-enable the submit button on failure
-                    if (questionProvider && questionProvider._webviewView) {
-                        questionProvider._webviewView.webview.postMessage({ type: 'enableSubmitButton' });
-                    }
-                }
+                return result;
             });
+
+            // Handle the result after progress notification disappears
+            if (result && result.error) {
+                let userMessage = result.error;
+                // Friendly error mapping
+                if (userMessage.includes('401')) {
+                    userMessage = 'Authentication failed: Your GitHub credentials are missing, invalid, or expired. Please update your credentials.';
+                } else if (userMessage.includes('403')) {
+                    userMessage = 'Permission denied: Your GitHub token does not have permission to perform this action.';
+                } else if (userMessage.includes('422')) {
+                    userMessage = 'Validation error: The repository or file data is invalid or already exists.';
+                } else if (userMessage.toLowerCase().includes('not found')) {
+                    userMessage = 'Resource not found: The requested repository or file could not be found.';
+                } else if (userMessage.toLowerCase().includes('server error')) {
+                    userMessage = 'Server error: There was a problem with the server. Please try again later.';
+                }
+                vscode.window.showErrorMessage(`Submission failed`);
+                // Re-enable the submit button on failure
+                if (questionProvider && questionProvider._webviewView) {
+                    questionProvider._webviewView.webview.postMessage({ type: 'enableSubmitButton' });
+                }
+            } else if (result && result.message) {
+                // Show success message after progress disappears
+                vscode.window.showInformationMessage(`Assignment submitted! ${result.message}`);
+                // Automatically refresh GCR data
+                classroomTreeProvider.setLoading(true);
+                // Also clear the question panel so it shows the default message
+                if (questionProvider && questionProvider._webviewView) {
+                    questionProvider._webviewView.webview.postMessage({ type: 'clearQuestions' });
+                }
+                const gcrData = await fetchGCRData(globalTokenJson);
+                const treeData = transformGCRDataToTree(gcrData);
+                setParentReferences(treeData);
+                classroomTreeProvider.setData(treeData);
+                classroomTreeProvider.setLoading(false);
+                // Keep submit button disabled on success
+            } else {
+                vscode.window.showErrorMessage('Unknown error occurred during submission.');
+                // Re-enable the submit button on failure
+                if (questionProvider && questionProvider._webviewView) {
+                    questionProvider._webviewView.webview.postMessage({ type: 'enableSubmitButton' });
+                }
+            }
         }
     }
 

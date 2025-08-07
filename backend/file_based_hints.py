@@ -73,19 +73,19 @@ Based on the problem and current code, provide exactly ONE short but highly acti
 == Format ==
 Return only a valid JSON object like this:
 
-{
+{{
   "hint_text": "<A clear, friendly tip about what to fix or think about next — no code.>",
   "hint_topic": "<One to three words max — e.g., 'loop', 'base case', 'recurrence'>",
-  "concepts": {
+  "concepts": {{
     "<concept_name>": "Explain this concept simply, like you're talking to a beginner.",
     "<another_concept>": "Another simple explanation.",
     "<yet_another_concept>": "No unnecessary jargon."
-  }
-}
+  }}
+}}
 
 == Additional Instructions ==
 - Return only the raw JSON — no markdown, no comments, no explanation.
-- If there’s a mistake in logic or syntax, identify it politely.
+- If there's a mistake in logic or syntax, identify it politely.
 - Always focus the hint on what the student should think about next.
 - Be concise, casual, and approachable — like you're tutoring a beginner in person.
 - Explain all terms used in the hint in the concepts section.
